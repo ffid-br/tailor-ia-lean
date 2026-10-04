@@ -29,12 +29,3 @@ for dir in "$(git rev-parse --show-toplevel 2>/dev/null)/docs/memoria" "$HOME/.t
     title=$(grep -m1 '^# ' "$f" | cut -c3-); echo "- ${f##*/} — ${title:-(sem título)}"
   done
 done
-
-# Lembrete único, só se faltar algum dos plugins que completam o modo enxuto.
-settings="$HOME/.claude/settings.json"
-if [ -f "$settings" ] && command -v jq >/dev/null; then
-  missing=$(jq -r '.enabledPlugins // {} | keys[]' "$settings" 2>/dev/null | grep -cE '^(caveman@caveman|ponytail@ponytail)$' || true)
-  if [ "${missing:-0}" -lt 2 ]; then
-    echo "Complementos recomendados (não instalados): /plugin marketplace add JuliusBrussee/caveman · /plugin install caveman · /plugin marketplace add DietrichGebert/ponytail · /plugin install ponytail"
-  fi
-fi

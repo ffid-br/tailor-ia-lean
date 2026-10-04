@@ -2,6 +2,6 @@
   "name": "tailor-ia-lean",
   "description": "Modo enxuto para Claude Code: regras de economia de tokens e de qualidade de raciocínio injetadas no início de cada sessão, mais um fluxo de desenvolvimento enxuto (ticket, branch, PR, quality gates, memória do projeto). Inclui agentes em Haiku e Sonnet para orquestração barata (batedor, operario, revisor) e fechamento de sessão com memória. Destilado de prática real em repositórios de produção.",
   "version": "0.2.0",
-  "author": { "name": "Tailor" },
+  "author": { "name": "FFID" },
   "keywords": ["tailor", "tokens", "custo", "contexto", "boas-praticas", "fluxo", "pr", "lean"]
 }

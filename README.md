@@ -26,7 +26,7 @@ Recomendado junto, mesma lógica de instalação:
 | caveman | `JuliusBrussee/caveman` | Comprime a prosa da resposta sem perder termo técnico |
 | ponytail | `DietrichGebert/ponytail` | Força a solução mais simples que funciona em toda tarefa de código |
 
-O hook avisa uma linha se algum dos dois não estiver instalado.
+
 
 ## O que vem
 
