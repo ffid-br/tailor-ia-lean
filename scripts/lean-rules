@@ -11,7 +11,8 @@ if [ -n "${PLUGIN_ROOT:-}" ] && [ -z "${CLAUDE_PROJECT_DIR:-}" ]; then
   DELEGA='- Faça direto, um arquivo por vez. Com 3+ arquivos, planeje os passos antes (guia em $orquestrar) e valide cada um.'
 else
   P='/'; INSTR='CLAUDE.md'; FIM='/compact ou /clear'
-  DELEGA='- Tarefa de 1 ou 2 arquivos: faça direto, sem subagente. Com 3+ arquivos ou 2+ passos independentes, delegue para modelo mais barato: localizar → `batedor` (Haiku); passo já especificado → `operario` (Sonnet); revisar diff → `revisor` (Sonnet). Fluxo em /orquestrar.'
+  DELEGA='- Investigação que vai tocar 3+ arquivos ("onde", "quem chama", "como funciona"): primeira ação é lançar o agente `batedor` (Haiku) com a pergunta; leia só a tabela que volta. Tarefa de 1 ou 2 arquivos: faça direto. Passo já especificado → `operario` (Sonnet); revisar diff → `revisor` (Sonnet). Fluxo em /orquestrar.
+- Tem a resposta? Pare. Não confirme com leitura extra; cada turno a mais relê o contexto inteiro.'
 fi
 
 cat <<TXT

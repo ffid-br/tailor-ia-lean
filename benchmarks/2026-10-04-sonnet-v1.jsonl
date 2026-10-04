@@ -1,0 +1,10 @@
+{"cond":"baseline","task":"T1","cost":0.1984968,"turns":5,"ms":18666,"in":10,"out":1962,"cr":171904,"cw":36119,"models":["claude-sonnet-5-5"],"answer_chars":1924}
+{"cond":"baseline","task":"T2","cost":0.18538900000000003,"turns":5,"ms":17267,"in":8,"out":2188,"cr":138085,"cw":33969,"models":["claude-sonnet-5-5"],"answer_chars":2677}
+{"cond":"baseline","task":"T3","cost":0.3216106,"turns":10,"ms":32719,"in":20,"out":3369,"cr":439743,"cw":49983,"models":["claude-sonnet-5-5"],"answer_chars":3046}
+{"cond":"lean","task":"T1","cost":0.24138800000000005,"turns":7,"ms":26178,"in":14,"out":2903,"cr":271630,"cw":39501,"models":["claude-sonnet-5-5"],"answer_chars":2918}
+{"cond":"lean","task":"T2","cost":0.18140479999999998,"turns":4,"ms":16276,"in":8,"out":1895,"cr":137354,"cw":33742,"models":["claude-sonnet-5-5"],"answer_chars":1986}
+{"cond":"lean","task":"T3","cost":0.34985659999999996,"turns":10,"ms":38345,"in":20,"out":4131,"cr":479593,"cw":53147,"models":["claude-sonnet-5-5"],"answer_chars":3204}
+{"cond":"stack","task":"T1","cost":0.2302776,"turns":6,"ms":21180,"in":12,"out":2278,"cr":243928,"cw":39672,"models":["claude-sonnet-5-5"],"answer_chars":2061}
+{"cond":"stack","task":"T2","cost":0.1878854,"turns":3,"ms":14842,"in":6,"out":1682,"cr":101367,"cw":37695,"models":["claude-sonnet-5-5"],"answer_chars":2204}
+{"cond":"stack","task":"T3","cost":0.43938920000000004,"turns":24,"ms":49053,"in":28,"out":5477,"cr":738056,"cw":59238,"models":["claude-sonnet-5-5"],"answer_chars":2889}
+DONE

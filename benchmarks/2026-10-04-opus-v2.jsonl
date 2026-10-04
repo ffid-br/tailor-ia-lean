@@ -1,0 +1,12 @@
+{"cond":"baseline","task":"T1","cost":0.461805,"turns":8,"ms":43398,"in":16,"out":3870,"cr":315585,"cw":40153,"models":["claude-opus-5-5"],"answer_chars":3928}
+{"cond":"baseline","task":"T2","cost":0.7319416,"turns":17,"ms":53721,"in":20,"out":4566,"cr":572548,"cw":65754,"models":["claude-opus-5-5"],"answer_chars":3044}
+{"cond":"baseline","task":"T3","cost":1.0582036,"turns":27,"ms":94024,"in":44,"out":7749,"cr":1400558,"cw":77867,"models":["claude-opus-5-5"],"answer_chars":3519}
+{"cond":"lean","task":"T1","cost":0.42232319999999995,"turns":7,"ms":36087,"in":14,"out":3273,"cr":269396,"cw":37866,"models":["claude-opus-5-5"],"answer_chars":3432}
+{"cond":"lean","task":"T2","cost":0.5342378,"turns":12,"ms":42887,"in":16,"out":3811,"cr":334009,"cw":48894,"models":["claude-opus-5-5"],"answer_chars":2800}
+{"cond":"lean","task":"T3","cost":1.1029613999999999,"turns":27,"ms":109144,"in":54,"out":9351,"cr":1617307,"cw":74033,"models":["claude-opus-5-5"],"answer_chars":3925}
+{"cond":"baseline","task":"T1","cost":0.2504132,"turns":8,"ms":40845,"in":16,"out":3474,"cr":344346,"cw":14000,"models":["claude-opus-5-5"],"answer_chars":3146}
+{"cond":"baseline","task":"T2","cost":0.7455170000000001,"turns":18,"ms":53030,"in":20,"out":5050,"cr":568705,"cw":66337,"models":["claude-opus-5-5"],"answer_chars":3056}
+{"cond":"baseline","task":"T3","cost":0.7327279999999999,"turns":23,"ms":90353,"in":40,"out":6812,"cr":1214720,"cw":44173,"models":["claude-opus-5-5"],"answer_chars":3260}
+{"cond":"lean","task":"T1","cost":0.4832944,"turns":10,"ms":43878,"in":16,"out":3850,"cr":330232,"cw":42523,"models":["claude-opus-5-5"],"answer_chars":3979}
+{"cond":"lean","task":"T2","cost":0.2163716,"turns":7,"ms":35181,"in":14,"out":3257,"cr":300918,"cw":11374,"models":["claude-opus-5-5"],"answer_chars":2288}
+{"cond":"lean","task":"T3","cost":0.684664,"turns":26,"ms":85830,"in":36,"out":7384,"cr":1007520,"cw":41917,"models":["claude-opus-5-5"],"answer_chars":3650}
