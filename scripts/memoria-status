@@ -3,7 +3,7 @@
 # Fontes: docs/memoria/ do repo atual e ~/.tailor-ia-lean/memoria/<pasta>/ (fallback sem git).
 set -uo pipefail
 now=$(date +%s)
-for dir in "$(git rev-parse --show-toplevel 2>/dev/null)/docs/memoria" "$HOME/.tailor-lean/memoria/$(basename "$PWD")"; do
+for dir in "$(git rev-parse --show-toplevel 2>/dev/null)/docs/memoria" "$HOME/.tailor-ia-lean/memoria/$(basename "$PWD")"; do
   [ -d "$dir" ] || continue
   echo "## $dir"
   for f in "$dir"/*.md; do

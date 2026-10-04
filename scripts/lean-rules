@@ -21,7 +21,7 @@ Fluxo de entrega: /fluxo-dev (ticket, branch, PR, quality gates, memória).
 TXT
 
 # Índice da memória do projeto: docs/memoria/ do repo e fallback ~/.tailor-ia-lean/memoria/<pasta>. Só nome + título.
-for dir in "$(git rev-parse --show-toplevel 2>/dev/null)/docs/memoria" "$HOME/.tailor-lean/memoria/$(basename "$PWD")"; do
+for dir in "$(git rev-parse --show-toplevel 2>/dev/null)/docs/memoria" "$HOME/.tailor-ia-lean/memoria/$(basename "$PWD")"; do
   [ -d "$dir" ] || continue
   files=("$dir"/*.md); [ -e "${files[0]}" ] || continue
   echo "Memória do projeto (${#files[@]} registros em $dir). Leia o arquivo antes de investigar assunto relacionado:"
