@@ -1,0 +1,16 @@
+{
+  "name": "tailor-ia-lean",
+  "version": "0.3.0",
+  "description": "Modo enxuto para Codex e Claude Code: regras de economia de tokens e de qualidade de raciocínio no início de cada sessão, mais um fluxo de desenvolvimento enxuto (ticket, branch, PR, quality gates, memória do projeto).",
+  "author": { "name": "FFID", "url": "https://github.com/ffid-br" },
+  "homepage": "https://github.com/ffid-br/tailor-ia-lean",
+  "repository": "https://github.com/ffid-br/tailor-ia-lean",
+  "license": "MIT",
+  "keywords": ["tailor", "tokens", "custo", "contexto", "boas-praticas", "fluxo", "pr", "lean", "pt-br"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Tailor.ia Lean",
+    "shortDescription": "Menos tokens, mais acerto: regras de sessão, fluxo de PR e memória do projeto.",
+    "category": "Productivity"
+  }
+}

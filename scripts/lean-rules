@@ -1,23 +1,34 @@
 #!/usr/bin/env bash
 # SessionStart: injeta as regras do modo enxuto no contexto. Curto de propósito: ~350 tokens.
-# A versão completa, com o porquê de cada regra, está na skill `lean` (/lean).
+# A versão completa, com o porquê de cada regra, está na skill `lean`.
+# Mesmo hook no Claude Code e no Codex. O Codex expõe PLUGIN_ROOT e não tem
+# CLAUDE_PROJECT_DIR; lá não há subagente em Haiku/Sonnet, as instruções do
+# projeto ficam em AGENTS.md e skill se chama com $nome em vez de /nome.
 set -uo pipefail
 
-cat <<'TXT'
+if [ -n "${PLUGIN_ROOT:-}" ] && [ -z "${CLAUDE_PROJECT_DIR:-}" ]; then
+  P='$'; INSTR='AGENTS.md'; FIM='/compact ou um chat novo'
+  DELEGA='- Faça direto, um arquivo por vez. Com 3+ arquivos, planeje os passos antes (guia em $orquestrar) e valide cada um.'
+else
+  P='/'; INSTR='CLAUDE.md'; FIM='/compact ou /clear'
+  DELEGA='- Tarefa de 1 ou 2 arquivos: faça direto, sem subagente. Com 3+ arquivos ou 2+ passos independentes, delegue para modelo mais barato: localizar → `batedor` (Haiku); passo já especificado → `operario` (Sonnet); revisar diff → `revisor` (Sonnet). Fluxo em /orquestrar.'
+fi
+
+cat <<TXT
 # Tailor.ia Lean — ativo nesta sessão
 Economia de tokens:
 - Resposta curta, direta, sem narrar tool calls nem repetir o que o usuário já sabe. Código antes de prosa.
-- Localize antes de ler: grep/find e `sed -n A,Bp`; nunca `cat` de arquivo grande inteiro. Não releia arquivo que acabou de editar.
-- Tarefa de 1 ou 2 arquivos: faça direto, sem subagente. Com 3+ arquivos ou 2+ passos independentes, delegue para modelo mais barato: localizar → `batedor` (Haiku); passo já especificado → `operario` (Sonnet); revisar diff → `revisor` (Sonnet). Fluxo em /orquestrar.
+- Localize antes de ler: grep/find e \`sed -n A,Bp\`; nunca \`cat\` de arquivo grande inteiro. Não releia arquivo que acabou de editar.
+$DELEGA
 - Chamadas independentes no mesmo bloco. Log ou saída longa: filtre e cite só a linha decisiva.
-- Tarefa concluída e assunto mudou: sugira /compact ou /clear.
+- Tarefa concluída e assunto mudou: sugira $FIM.
 Qualidade de raciocínio:
-- Antes de editar: leia CLAUDE.md, docs/memoria/ (se existir) e trace o fluxo real de ponta a ponta. Depois escolha a menor mudança no lugar certo.
+- Antes de editar: leia $INSTR, docs/memoria/ (se existir) e trace o fluxo real de ponta a ponta. Depois escolha a menor mudança no lugar certo.
 - Bug = causa raiz. Liste os callers da função antes de corrigir; um guard no ponto comum vale mais que N guards nos chamadores.
 - Reaproveite o que já existe no repo; nada de abstração, config ou dependência nova para caso único.
 - Rode os quality gates do repo (lint, typecheck, test) antes de dizer "pronto". Falhou: diga qual e mostre a linha.
-- Fim de sessão: /fechar guarda o aprendizado em docs/memoria/, limpa registros vencidos e diz se é /compact ou /clear.
-Fluxo de entrega: /fluxo-dev (ticket, branch, PR, quality gates, memória).
+- Fim de sessão: ${P}fechar guarda o aprendizado em docs/memoria/, limpa registros vencidos e diz se é $FIM.
+Fluxo de entrega: ${P}fluxo-dev (ticket, branch, PR, quality gates, memória).
 TXT
 
 # Índice da memória do projeto: docs/memoria/ do repo e fallback ~/.tailor-ia-lean/memoria/<pasta>. Só nome + título.

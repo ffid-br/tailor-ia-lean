@@ -19,6 +19,19 @@ telemetria: arquivos de texto e dois scripts bash.
 Abra uma sessão nova. O bloco "Tailor.ia Lean — ativo nesta sessão" aparece no contexto
 (~350 tokens, uma vez por sessão).
 
+### No Codex
+
+```
+codex plugin marketplace add ffid-br/tailor-ia-lean
+codex plugin add tailor-ia-lean@tailor-ia-lean
+```
+
+Na primeira sessão o Codex pede para confiar no hook do plugin: aceite, é ele que injeta as
+regras. No Codex as skills se chamam com `$` (`$lean`, `$fluxo-dev`, `$orquestrar`, `$fechar`)
+e o hook lê `AGENTS.md` no lugar de `CLAUDE.md`. Os agentes `batedor`, `operario` e `revisor`
+são do Claude Code; no Codex o hook troca a regra de delegação por "planeje os passos e valide
+cada um". Atualizar: `codex plugin marketplace upgrade tailor-ia-lean`.
+
 Recomendado junto, mesma lógica de instalação:
 
 | Plugin | Repo | O que faz |

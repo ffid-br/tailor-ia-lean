@@ -1,0 +1,12 @@
+{
+  "name": "tailor-ia-lean",
+  "interface": { "displayName": "Tailor.ia" },
+  "plugins": [
+    {
+      "name": "tailor-ia-lean",
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE" },
+      "category": "Productivity"
+    }
+  ]
+}
