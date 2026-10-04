@@ -8,7 +8,7 @@ cat <<'TXT'
 Economia de tokens:
 - Resposta curta, direta, sem narrar tool calls nem repetir o que o usuário já sabe. Código antes de prosa.
 - Localize antes de ler: grep/find e `sed -n A,Bp`; nunca `cat` de arquivo grande inteiro. Não releia arquivo que acabou de editar.
-- Varredura ampla (muitos arquivos, "onde está X") vai para subagente Explore; só a conclusão volta ao contexto.
+- Delegue para modelo mais barato: localizar → agente `batedor` (Haiku); passo já especificado → `operario` (Sonnet); revisar diff → `revisor` (Sonnet). Só a conclusão volta ao contexto. Fluxo em /orquestrar.
 - Chamadas independentes no mesmo bloco. Log ou saída longa: filtre e cite só a linha decisiva.
 - Tarefa concluída e assunto mudou: sugira /compact ou /clear.
 Qualidade de raciocínio:
@@ -16,9 +16,19 @@ Qualidade de raciocínio:
 - Bug = causa raiz. Liste os callers da função antes de corrigir; um guard no ponto comum vale mais que N guards nos chamadores.
 - Reaproveite o que já existe no repo; nada de abstração, config ou dependência nova para caso único.
 - Rode os quality gates do repo (lint, typecheck, test) antes de dizer "pronto". Falhou: diga qual e mostre a linha.
-- Fim de sessão com aprendizado que não está no código: registre em docs/memoria/ (ver /lean).
+- Fim de sessão: /fechar guarda o aprendizado em docs/memoria/, limpa registros vencidos e diz se é /compact ou /clear.
 Fluxo de entrega: /fluxo-dev (ticket, branch, PR, quality gates, memória).
 TXT
+
+# Índice da memória do projeto: docs/memoria/ do repo e fallback ~/.tailor-lean/memoria/<pasta>. Só nome + título.
+for dir in "$(git rev-parse --show-toplevel 2>/dev/null)/docs/memoria" "$HOME/.tailor-lean/memoria/$(basename "$PWD")"; do
+  [ -d "$dir" ] || continue
+  files=("$dir"/*.md); [ -e "${files[0]}" ] || continue
+  echo "Memória do projeto (${#files[@]} registros em $dir). Leia o arquivo antes de investigar assunto relacionado:"
+  printf '%s\n' "${files[@]}" | sort -r | head -n 15 | while IFS= read -r f; do
+    title=$(grep -m1 '^# ' "$f" | cut -c3-); echo "- ${f##*/} — ${title:-(sem título)}"
+  done
+done
 
 # Lembrete único, só se faltar algum dos plugins que completam o modo enxuto.
 settings="$HOME/.claude/settings.json"

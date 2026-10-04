@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Lista os registros de memória com idade em dias, para a limpeza do /fechar.
+# Fontes: docs/memoria/ do repo atual e ~/.tailor-lean/memoria/<pasta>/ (fallback sem git).
+set -uo pipefail
+now=$(date +%s)
+for dir in "$(git rev-parse --show-toplevel 2>/dev/null)/docs/memoria" "$HOME/.tailor-lean/memoria/$(basename "$PWD")"; do
+  [ -d "$dir" ] || continue
+  echo "## $dir"
+  for f in "$dir"/*.md; do
+    [ -e "$f" ] || { echo "(vazio)"; break; }
+    mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f")
+    age=$(( (now - mtime) / 86400 ))
+    title=$(grep -m1 '^# ' "$f" | cut -c3-)
+    printf '%4dd  %s — %s\n' "$age" "${f##*/}" "${title:-(sem título)}"
+  done | sort -rn
+done
