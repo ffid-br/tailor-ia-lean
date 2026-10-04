@@ -11,6 +11,31 @@ em produção. Três tarefas somente leitura:
 Reproduzir: `REPO=/caminho/do/repo MODEL=opus benchmarks/run.sh`. Liga e desliga os plugins via
 `claude plugin enable|disable` entre condições; restaura tudo ao fim.
 
+## v3 · Opus 5.5 como modelo principal · plugin 0.3.0 · 5 repetições · 2026-10-04
+
+Mediana de 5 execuções por célula (30 no total). Dados brutos em `2026-10-04-opus-v3.jsonl`.
+
+| Tarefa | Custo | Turnos do Opus | Contexto relido (cache) | Tokens de saída | Tempo |
+|---|---|---|---|---|---|
+| T1 localizar auth | $0,44 → **$0,38** (−14%) | 9 → **4** | 314k → **137k** | 3,7k → 2,8k | 39s → 95s |
+| T2 mapear backend | $0,41 → **$0,26** (−37%) | 14 → **9** | 351k → **273k** | 4,5k → 3,4k | 48s → 37s |
+| T3 investigar bug | $0,73 → **$0,57** (−22%) | 22 → **9** | 1.114k → **378k** | 6,8k → 4,2k | 83s → 159s |
+| **Total 15 execuções** | **$7,57 → $6,53 (−14%)** | **224 → 110 (−51%)** | **9,2M → 4,1M (−56%)** | **76k → 55k (−28%)** | 861s → 1.435s (+67%) |
+
+Formato: sem plugin → com Tailor.ia Lean.
+
+O que mudou da v2 para a v3: a regra de delegação virou primeira ação em investigação de 3+
+arquivos. O `batedor` (Haiku) rodou em 9 das 15 execuções com plugin (todas de T1, 4 de 5 de T3,
+nenhuma de T2, que o Opus resolveu direto). Efeito: o Opus faz metade dos turnos e relê menos da
+metade do contexto. O custo cai menos que o contexto (−14% contra −56%) porque o Haiku entra na
+conta e cada subagente paga a própria escrita de cache.
+
+Custo do ganho: **tempo**. Subagente roda em série e a execução fica mais lenta em T1 e T3. Para
+quem paga por token, é troca boa; para quem paga por minuto, não.
+
+Ganho mais consistente: **T2, mapeamento**. Em todas as 5 repetições o Lean ficou abaixo da mediana
+do baseline. Em T1 e T3 o pior caso do Lean encosta no melhor do baseline; a dispersão continua alta.
+
 ## v2 · Opus 5.5 como modelo principal · 2 repetições · 2026-10-04
 
 Mediana por tarefa. Dados brutos em `2026-10-04-opus-v2.jsonl`.
@@ -49,7 +74,7 @@ delegar para Sonnet não barateia nada. A 0.2.1 condicionou a delegação a 3+ a
 
 ## Limites
 
-- n pequeno (1 e 2 repetições). Tendência, não prova.
+- n pequeno (1, 2 e 5 repetições). Tendência, não prova; repetições iguais variam até 2x.
 - Tarefas somente leitura. Tarefas de edição e o `/fechar` não estão medidos.
 - Um repositório. Resultado depende do tamanho dos arquivos e da qualidade do CLAUDE.md.
 - Os três plugins medidos na v1 têm hooks próprios; a interação entre eles não foi isolada.
