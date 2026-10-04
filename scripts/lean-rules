@@ -8,7 +8,7 @@ cat <<'TXT'
 Economia de tokens:
 - Resposta curta, direta, sem narrar tool calls nem repetir o que o usuário já sabe. Código antes de prosa.
 - Localize antes de ler: grep/find e `sed -n A,Bp`; nunca `cat` de arquivo grande inteiro. Não releia arquivo que acabou de editar.
-- Delegue para modelo mais barato: localizar → agente `batedor` (Haiku); passo já especificado → `operario` (Sonnet); revisar diff → `revisor` (Sonnet). Só a conclusão volta ao contexto. Fluxo em /orquestrar.
+- Tarefa de 1 ou 2 arquivos: faça direto, sem subagente. Com 3+ arquivos ou 2+ passos independentes, delegue para modelo mais barato: localizar → `batedor` (Haiku); passo já especificado → `operario` (Sonnet); revisar diff → `revisor` (Sonnet). Fluxo em /orquestrar.
 - Chamadas independentes no mesmo bloco. Log ou saída longa: filtre e cite só a linha decisiva.
 - Tarefa concluída e assunto mudou: sugira /compact ou /clear.
 Qualidade de raciocínio:
