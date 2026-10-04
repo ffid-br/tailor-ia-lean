@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# SessionStart: injeta as regras do modo enxuto no contexto. Curto de propósito: ~350 tokens.
+# A versão completa, com o porquê de cada regra, está na skill `lean` (/lean).
+set -uo pipefail
+
+cat <<'TXT'
+# Tailor lean — ativo nesta sessão
+Economia de tokens:
+- Resposta curta, direta, sem narrar tool calls nem repetir o que o usuário já sabe. Código antes de prosa.
+- Localize antes de ler: grep/find e `sed -n A,Bp`; nunca `cat` de arquivo grande inteiro. Não releia arquivo que acabou de editar.
+- Varredura ampla (muitos arquivos, "onde está X") vai para subagente Explore; só a conclusão volta ao contexto.
+- Chamadas independentes no mesmo bloco. Log ou saída longa: filtre e cite só a linha decisiva.
+- Tarefa concluída e assunto mudou: sugira /compact ou /clear.
+Qualidade de raciocínio:
+- Antes de editar: leia CLAUDE.md, docs/memoria/ (se existir) e trace o fluxo real de ponta a ponta. Depois escolha a menor mudança no lugar certo.
+- Bug = causa raiz. Liste os callers da função antes de corrigir; um guard no ponto comum vale mais que N guards nos chamadores.
+- Reaproveite o que já existe no repo; nada de abstração, config ou dependência nova para caso único.
+- Rode os quality gates do repo (lint, typecheck, test) antes de dizer "pronto". Falhou: diga qual e mostre a linha.
+- Fim de sessão com aprendizado que não está no código: registre em docs/memoria/ (ver /lean).
+Fluxo de entrega: /fluxo-dev (ticket, branch, PR, quality gates, memória).
+TXT
+
+# Lembrete único, só se faltar algum dos plugins que completam o modo enxuto.
+settings="$HOME/.claude/settings.json"
+if [ -f "$settings" ] && command -v jq >/dev/null; then
+  missing=$(jq -r '.enabledPlugins // {} | keys[]' "$settings" 2>/dev/null | grep -cE '^(caveman@caveman|ponytail@ponytail)$' || true)
+  if [ "${missing:-0}" -lt 2 ]; then
+    echo "Complementos recomendados (não instalados): /plugin marketplace add JuliusBrussee/caveman · /plugin install caveman · /plugin marketplace add DietrichGebert/ponytail · /plugin install ponytail"
+  fi
+fi

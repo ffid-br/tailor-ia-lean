@@ -1,0 +1,7 @@
+{
+  "name": "tailor-lean",
+  "description": "Modo enxuto para Claude Code: regras de economia de tokens e de qualidade de raciocínio injetadas no início de cada sessão, mais um fluxo de desenvolvimento enxuto (ticket, branch, PR, quality gates, memória do projeto). Destilado de prática real em repositórios de produção.",
+  "version": "0.1.0",
+  "author": { "name": "Tailor" },
+  "keywords": ["tailor", "tokens", "custo", "contexto", "boas-praticas", "fluxo", "pr", "lean"]
+}
