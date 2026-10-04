@@ -4,7 +4,7 @@
 set -uo pipefail
 
 cat <<'TXT'
-# Tailor lean — ativo nesta sessão
+# Tailor.ia Lean — ativo nesta sessão
 Economia de tokens:
 - Resposta curta, direta, sem narrar tool calls nem repetir o que o usuário já sabe. Código antes de prosa.
 - Localize antes de ler: grep/find e `sed -n A,Bp`; nunca `cat` de arquivo grande inteiro. Não releia arquivo que acabou de editar.
@@ -20,7 +20,7 @@ Qualidade de raciocínio:
 Fluxo de entrega: /fluxo-dev (ticket, branch, PR, quality gates, memória).
 TXT
 
-# Índice da memória do projeto: docs/memoria/ do repo e fallback ~/.tailor-lean/memoria/<pasta>. Só nome + título.
+# Índice da memória do projeto: docs/memoria/ do repo e fallback ~/.tailor-ia-lean/memoria/<pasta>. Só nome + título.
 for dir in "$(git rev-parse --show-toplevel 2>/dev/null)/docs/memoria" "$HOME/.tailor-lean/memoria/$(basename "$PWD")"; do
   [ -d "$dir" ] || continue
   files=("$dir"/*.md); [ -e "${files[0]}" ] || continue

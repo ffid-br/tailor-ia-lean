@@ -1,4 +1,4 @@
-# tailor-lean — menos tokens, mais acerto
+# Tailor.ia Lean — menos tokens, mais acerto
 
 Plugin de [Claude Code](https://claude.com/claude-code) que injeta, no início de cada sessão,
 um bloco curto de regras para **gastar menos tokens** e **raciocinar melhor**, e traz dois guias
@@ -12,11 +12,11 @@ telemetria: arquivos de texto e dois scripts bash.
 ## Instalar
 
 ```
-/plugin marketplace add ffid-br/tailor-lean
-/plugin install tailor-lean
+/plugin marketplace add ffid-br/tailor-ia-lean
+/plugin install tailor-ia-lean
 ```
 
-Abra uma sessão nova. O bloco "Tailor lean — ativo nesta sessão" aparece no contexto
+Abra uma sessão nova. O bloco "Tailor.ia Lean — ativo nesta sessão" aparece no contexto
 (~350 tokens, uma vez por sessão).
 
 Recomendado junto, mesma lógica de instalação:
@@ -53,7 +53,7 @@ integrar. Tarefa de um arquivo: faça direto, subagente não compensa.
 `/fechar` ao fim da sessão: grava em `docs/memoria/AAAA-MM-DD-slug.md` o que não está no código
 (causa raiz, hipótese descartada, decisão), funde duplicados, apaga registros vencidos e diz se o
 próximo passo é `/compact` (mesma tarefa) ou `/clear` (assunto novo). Sem repositório git, grava
-em `~/.tailor-lean/memoria/<pasta>/`. O hook de sessão lê o índice dos dois lugares na próxima
+em `~/.tailor-ia-lean/memoria/<pasta>/`. O hook de sessão lê o índice dos dois lugares na próxima
 abertura. `scripts/memoria-status` lista os registros com idade.
 
 ## As regras, em resumo

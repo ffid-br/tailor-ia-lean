@@ -27,7 +27,7 @@ código? Candidatos:
 Nada disso? Pule para o passo 3. Memória vazia é melhor que memória com ruído.
 
 Onde: `docs/memoria/AAAA-MM-DD-slug.md` na raiz do repositório. Sem repositório git:
-`~/.tailor-lean/memoria/<nome-da-pasta>/AAAA-MM-DD-slug.md`. O hook de sessão deste plugin
+`~/.tailor-ia-lean/memoria/<nome-da-pasta>/AAAA-MM-DD-slug.md`. O hook de sessão deste plugin
 lê o índice dos dois lugares na próxima abertura.
 
 Antes de criar: `grep -ril <termo> docs/memoria/`. Assunto já tem arquivo → atualize esse
