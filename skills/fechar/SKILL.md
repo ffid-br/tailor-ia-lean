@@ -33,6 +33,10 @@ lê o índice dos dois lugares na próxima abertura.
 Antes de criar: `grep -ril <termo> docs/memoria/`. Assunto já tem arquivo → atualize esse
 arquivo. Dois arquivos sobre a mesma coisa é como memória apodrece.
 
+Repetiu? Se a sessão corrigiu o modelo 2+ vezes pelo mesmo motivo, ou redescobriu algo que
+já estava em `docs/memoria/`, proponha uma linha no `CLAUDE.md`/`AGENTS.md` (lido sempre) em
+vez de registro novo. Uma ocorrência só: nada. Não criar nada é resultado válido.
+
 Formato:
 
 ```markdown
@@ -42,13 +46,33 @@ Formato:
 **Causa / decisão:** direto.
 **Por quê:** o que foi descartado e o motivo.
 **Toca:** `caminho/arquivo.ts`
+**Status:** vigente | superado por <arquivo>.md
+**Fixo:** sim
 ```
+
+`Status` e `Fixo` são opcionais. `Fixo: sim` só para o que vale sempre ler (armadilha que
+custa caro); o índice mostra esses primeiro. Use pouco.
 
 Título bom: `lentidão do checkout não é no tracking, é pool do pgbouncer`. Título ruim:
 `notas sobre checkout`.
 
 Não entra: narrativa da sessão, passo a passo que o código mostra, changelog, credencial,
-dado de cliente, onde você parou (isso é rascunho, vai em `CLAUDE.local.md`).
+dado de cliente, onde você parou (isso é handoff, abaixo).
+
+### Onde parei
+
+Tarefa ficou pela metade? Até 5 linhas (tarefa, próximo passo concreto, dúvida aberta) em
+`$(git rev-parse --git-dir)/tailor-handoff.md`: fica dentro de `.git`, nunca é commitado.
+Sem git: `~/.tailor-ia-lean/memoria/<nome-da-pasta>/handoff.md`. Sobrescreve o anterior; a
+próxima sessão mostra uma vez e descarta. Tarefa concluída não deixa handoff.
+
+```bash
+cat > "$(git rev-parse --git-dir)/tailor-handoff.md" <<'EOF'
+Tarefa: ...
+Próximo passo: ...
+Dúvida aberta: ...
+EOF
+```
 
 ## 2. Limpar a memória
 
@@ -56,9 +80,12 @@ Rode `"${CLAUDE_PLUGIN_ROOT}"/scripts/memoria-status` (ou liste `docs/memoria/` 
 Para cada registro:
 
 - **Mesmo assunto em dois arquivos**: funda no mais recente, apague o outro.
-- **Conclusão que a sessão mudou**: edite o registro, não abra outro.
+- **Decisão revertida**: escreva o registro novo e marque o antigo com
+  `**Status:** superado por <novo>.md`. Não apague: o histórico explica por que mudou.
+  Correção pequena do mesmo fato: edite.
 - **Virou código ou CLAUDE.md** (regra agora está onde a IA lê sempre): apague o registro.
-- **Mais de 180 dias sem ser tocado e sem `Toca:` que ainda exista**: apague.
+- **Mais de 180 dias sem commit e sem `Toca:` que ainda exista**: apague. Registro
+  `**Fixo:** sim` não expira por idade.
 
 Apagar é `git rm`; passa pelo review do PR como qualquer mudança.
 

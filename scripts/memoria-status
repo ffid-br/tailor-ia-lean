@@ -8,7 +8,9 @@ for dir in "$(git rev-parse --show-toplevel 2>/dev/null)/docs/memoria" "$HOME/.t
   echo "## $dir"
   for f in "$dir"/*.md; do
     [ -e "$f" ] || { echo "(vazio)"; break; }
-    mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f")
+    # Data do último commit que tocou o arquivo; clone/pull iguala o mtime. Sem git: stat (GNU primeiro, BSD depois).
+    mtime=$(git -C "$(dirname "$f")" log -1 --format=%ct -- "$f" 2>/dev/null)
+    [ -n "$mtime" ] || mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f")
     age=$(( (now - mtime) / 86400 ))
     title=$(grep -m1 '^# ' "$f" | cut -c3-)
     printf '%4dd  %s — %s\n' "$age" "${f##*/}" "${title:-(sem título)}"

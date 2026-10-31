@@ -105,6 +105,10 @@ Não entra: tutorial da linguagem, árvore de diretórios completa, histórico d
 
 Teste: se remover a linha e a IA ainda acertaria, remova.
 
+Projeto usado com Claude Code e Codex: `AGENTS.md` é a fonte única; o `CLAUDE.md` fica só
+com `@AGENTS.md`. Preferência pessoal que vale em todo repo vai em `~/.claude/CLAUDE.md`,
+não na memória do projeto.
+
 ## 5. Complementos que fazem par com este plugin
 
 - **caveman** (`JuliusBrussee/caveman`): comprime a prosa da resposta sem perder termo técnico.

@@ -17,7 +17,7 @@ telemetria: arquivos de texto e dois scripts bash.
 ```
 
 Abra uma sessão nova. O bloco "Tailor.ia Lean — ativo nesta sessão" aparece no contexto
-(~350 tokens, uma vez por sessão).
+(~350 tokens mais o índice da memória, até 15 linhas, uma vez por sessão).
 
 ### No Codex
 
@@ -45,7 +45,7 @@ Recomendado junto, mesma lógica de instalação:
 
 | Item | Quando entra | Custo |
 |---|---|---|
-| Hook `SessionStart` | toda sessão, resume, `/clear`, `/compact` | ~350 tokens |
+| Hook `SessionStart` | toda sessão, resume, `/clear`, `/compact` | ~350 tokens + índice |
 | Skill `lean` | `/lean` ou pergunta sobre custo, contexto, qualidade | sob demanda |
 | Skill `fluxo-dev` | `/fluxo-dev` ou pedido de "fluxo completo", "abre o PR" | sob demanda |
 | Skill `orquestrar` | `/orquestrar`, "usa modelo mais barato", tarefa com 3+ arquivos | sob demanda |
@@ -67,7 +67,10 @@ integrar. Tarefa de um arquivo: faça direto, subagente não compensa.
 (causa raiz, hipótese descartada, decisão), funde duplicados, apaga registros vencidos e diz se o
 próximo passo é `/compact` (mesma tarefa) ou `/clear` (assunto novo). Sem repositório git, grava
 em `~/.tailor-ia-lean/memoria/<pasta>/`. O hook de sessão lê o índice dos dois lugares na próxima
-abertura. `scripts/memoria-status` lista os registros com idade.
+abertura. `scripts/memoria-status` lista os registros com idade. `/fechar` também grava um handoff
+curto de "onde parei" dentro de `.git/` (nunca commitado), que a próxima sessão mostra uma vez e
+descarta. Registros podem ter `**Fixo:** sim` (sempre no índice) e `**Status:** superado por
+<arquivo>` (sai do índice, git guarda o histórico).
 
 ## As regras, em resumo
 
