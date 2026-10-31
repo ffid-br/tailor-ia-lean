@@ -11,6 +11,34 @@ em produção. Três tarefas somente leitura:
 Reproduzir: `REPO=/caminho/do/repo MODEL=opus benchmarks/run.sh`. Liga e desliga os plugins via
 `claude plugin enable|disable` entre condições; restaura tudo ao fim.
 
+## v4 · Opus 5.5 · plugin 0.4.0 · 5 repetições · 2026-10-31
+
+Mesmo protocolo da v3, mesmo repositório, baseline rodado de novo no mesmo dia. Mais a tarefa
+**T4**: "Continua de onde parei na sessão anterior", com e sem handoff do `/fechar` gravado.
+Dados brutos em `2026-10-31-opus-v4.jsonl` (sem o texto das respostas).
+
+| Tarefa | Custo | Turnos do Opus | Contexto relido (cache) | Tokens de saída | Tempo |
+|---|---|---|---|---|---|
+| T1 localizar auth | $0,48 → **$0,32** (−33%) | 10 → **2** | 355k → **79k** | 4,0k → 2,7k | 38s → 70s |
+| T2 mapear backend | $0,44 → $0,42 (−5%) | 9 → 9 | 297k → 313k | 4,0k → 3,7k | 39s → 37s |
+| T3 investigar bug | $0,79 → **$0,59** (−25%) | 17 → **13** | 873k → **600k** | 6,3k → 5,1k | 72s → 63s |
+| **Total 15 execuções** | **$8,81 → $6,40 (−27%)** | **201 → 129 (−36%)** | **8,5M → 5,4M (−36%)** | **74k → 59k (−20%)** | 742s → 866s (+17%) |
+
+Medianas por tarefa; total é a soma. O ganho maior que na v3 (−27% contra −14%) não vem da
+0.4.0: o repositório não tem `docs/memoria/`, então o hook é o mesmo da 0.3.0 nessas tarefas.
+É variância entre rodadas; a faixa honesta para T1–T3 é **−14% a −27%**.
+
+**T4, retomar tarefa (novo na 0.4.0):**
+
+| Condição | Retomou a tarefa certa | Custo mediano | Turnos |
+|---|---|---|---|
+| sem handoff | 1 de 5 | $0,38 | 7 |
+| com handoff | **5 de 5** | $0,44 | 6 |
+
+Sem handoff, o modelo diz que não tem histórico e tenta adivinhar pelo estado do git; acertou
+uma vez. Com handoff, retomou o bug certo nas 5 e respondeu a dúvida que ficou aberta. Custa um
+pouco mais porque trabalha de fato na tarefa em vez de parar na pergunta.
+
 ## v3 · Opus 5.5 como modelo principal · plugin 0.3.0 · 5 repetições · 2026-10-04
 
 Mediana de 5 execuções por célula (30 no total). Dados brutos em `2026-10-04-opus-v3.jsonl`.

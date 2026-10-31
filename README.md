@@ -86,10 +86,11 @@ Detalhe e exemplos em [`skills/lean/SKILL.md`](skills/lean/SKILL.md).
 
 ## Benchmark
 
-Opus 5.5 no comando, 3 tarefas reais num frontend de ~1.000 arquivos, 5 repetições por célula:
-**14% mais barato, metade dos turnos do Opus, 56% menos contexto relido, 28% menos tokens de
-saída.** Ganho por tarefa entre 14% e 37% no custo. Custo do ganho: execução mais lenta quando o
-subagente roda. A primeira rodada, com Sonnet, deu contra o plugin e está publicada também.
+Opus 5.5 no comando, 3 tarefas reais num frontend de ~1.000 arquivos, 5 repetições por célula,
+duas rodadas (v3 e v4): **14% a 27% mais barato, 36% a 51% menos turnos do Opus, 36% a 56% menos
+contexto relido, 20% a 28% menos tokens de saída.** Retomar tarefa com o handoff do `/fechar`:
+5 de 5 acertos, contra 1 de 5 sem. Custo do ganho: execução mais lenta quando o subagente roda.
+A primeira rodada, com Sonnet, deu contra o plugin e está publicada também.
 Método, limites e dados brutos em [`benchmarks/`](benchmarks/README.md).
 
 ## Contribuir
