@@ -42,7 +42,7 @@ test('delegação ao batedor aparece com modelo e tokens', async ($, on) => {
 
   const ui = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
   const linha = await ui.find({ type: 'Text', text: /batedor/ })
-  expect(linha?.text).toBe('✓ batedor · haiku-5-5 · 12.3k tok · 7 ferr · 9s')
+  expect(linha?.text).toBe('✓ batedor · haiku-5-5 · 12.3k · onde fica o login')
   expect((await ui.find({ type: 'Text', text: /ferramentas:/ }))?.text).toBe(
     'ferramentas: 2 no principal · 0 em agentes (0%)',
   )
@@ -64,7 +64,8 @@ test('agente em segundo plano fecha no turn.complete dele', async ($, on) => {
     prompt: 'revisar diff',
   })
   const ui = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /revisor/ }))?.text).toBe('… revisor · ?')
+  expect((await ui.find({ type: 'Text', text: /Agora/ }))?.text).toBe('Agora · 1 agente')
+  expect((await ui.find({ type: 'Text', text: /revisor .*há/ }))?.text).toMatch(/^… revisor · \? · há \d+s · revisar diff$/)
   await ui.unmount()
 
   await $.turn.complete({
@@ -77,7 +78,9 @@ test('agente em segundo plano fecha no turn.complete dele', async ($, on) => {
     usage: { model: 'claude-sonnet-5-5', input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 3000, cache_creation_input_tokens: 500 },
   })
   const ui2 = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
-  expect((await ui2.find({ type: 'Text', text: /revisor/ }))?.text).toBe('✓ revisor · sonnet-5-5 · 5.0k tok')
+  expect((await ui2.find({ type: 'Text', text: /revisor/ }))?.text).toBe('✓ revisor · sonnet-5-5 · 5.0k · revisar diff')
+  expect(await ui2.find({ type: 'Text', text: /Agora/ })).toBeFalsy()
+  expect((await ui2.find({ type: 'Text', text: /agente.*tok/ }))?.text).toBe('sonnet-5-5 · 1 agente · 5.0k tok')
   await ui2.unmount()
 })
 

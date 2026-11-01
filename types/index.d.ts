@@ -8,6 +8,7 @@ export type Delegacao = {
   ferramentas?: number
   ms?: number
   agentId?: string
+  inicio?: number
 }
 
 export type Totais = {

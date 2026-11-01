@@ -22,7 +22,9 @@ const delegacoes = atom({ plugin: 'tailor-ia-lean', key: 'delegacoes' } as const
 })
 const totais = atom({ plugin: 'tailor-ia-lean', key: 'totais' } as const, zero, { shape: 'totais-1' })
 
-const k = (n = 0) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : String(n))
+const k = (n = 0) =>
+  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : String(n)
+const seg = (ms = 0) => (ms >= 60_000 ? `${Math.round(ms / 60_000)}min` : `${Math.round(ms / 1000)}s`)
 const curto = (m?: string) => (m ? m.replace(/^claude-/, '').replace(/-\d{8}$/, '') : '?')
 const tipoCurto = (t: string) => t.replace(/^tailor-ia-lean:/, '')
 // O painel nunca pode travar uma ferramenta: falha de registro é ignorada.
@@ -57,6 +59,7 @@ export const register: Register = on => {
       descricao: e.description,
       modelo: e.model,
       status: 'rodando',
+      inicio: Date.now(),
     }
     await seguro(update($, delegacoes, l => [...l, d].slice(-50)))
     const r = await next(e)
@@ -120,34 +123,74 @@ export const register: Register = on => {
     const t = await read($, totais)
     const total = t.ferramentasPrincipal + t.ferramentasAgentes
     const pct = total ? Math.round((t.ferramentasAgentes / total) * 100) : 0
-    const sala = Math.max(1, (e.viewport?.rows ?? 24) - 9)
+    const agora = l.filter(d => d.status === 'rodando' || d.status === 'fundo')
+    const porModelo = new Map<string, { n: number; tok: number }>()
+    for (const d of l) {
+      const m = curto(d.modelo)
+      const v = porModelo.get(m) ?? { n: 0, tok: 0 }
+      porModelo.set(m, { n: v.n + 1, tok: v.tok + (d.tokens ?? 0) })
+    }
+    // Caixas fixas ocupam ~14 linhas; o resto vai para a lista de delegações.
+    const sala = Math.max(3, (e.viewport?.rows ?? 30) - 14 - agora.length - porModelo.size)
+    const caixa = { borderStyle: 'round', flexDirection: 'column', paddingX: 1 } as const
 
     return (
-      <Box flexDirection="column">
-        <Text bold>Principal · {curto(t.modelo)}</Text>
-        <Text>
-          {t.turnos} turnos · relido {k(t.relido)} · saída {k(t.saida)}
-        </Text>
-        <Text dimColor>
-          ferramentas: {t.ferramentasPrincipal} no principal · {t.ferramentasAgentes} em agentes ({pct}%)
-        </Text>
-        <Text> </Text>
-        <Text bold>Delegações</Text>
-        {l.length === 0 && <Text dimColor>Nenhuma ainda. Tudo no principal.</Text>}
-        {l.slice(-sala).map(d => (
-          <Box flexDirection="column">
+      <Box flexDirection="column" gap={1}>
+        <Box {...caixa}>
+          <Text bold>Principal · {curto(t.modelo)}</Text>
+          <Text>
+            {t.turnos} turnos · relido {k(t.relido)} · saída {k(t.saida)}
+          </Text>
+          <Text dimColor>
+            ferramentas: {t.ferramentasPrincipal} no principal · {t.ferramentasAgentes} em agentes ({pct}%)
+          </Text>
+        </Box>
+
+        {agora.length > 0 && (
+          <Box {...caixa} borderColor="warning">
+            <Text bold color="warning">
+              Agora · {agora.length} {agora.length === 1 ? 'agente' : 'em paralelo'}
+            </Text>
+            {agora.map(d => (
+              <Text wrap="truncate-end">
+                {d.status === 'fundo' ? '…' : '▶'} {tipoCurto(d.tipo)} · {curto(d.modelo)}
+                {d.inicio ? ` · há ${seg(Date.now() - d.inicio)}` : ''} · {d.descricao}
+              </Text>
+            ))}
+          </Box>
+        )}
+
+        {porModelo.size > 0 && (
+          <Box {...caixa}>
+            <Text bold>Por modelo</Text>
+            {[...porModelo.entries()]
+              .sort((a, b) => b[1].tok - a[1].tok)
+              .map(([m, v]) => (
+                <Text>
+                  {m} · {v.n} {v.n === 1 ? 'agente' : 'agentes'} · {k(v.tok)} tok
+                </Text>
+              ))}
+          </Box>
+        )}
+
+        <Box {...caixa}>
+          <Text bold>
+            Delegações{l.length > 0 ? ` · ${l.length}` : ''}
+            {l.length > sala ? ` (últimas ${sala})` : ''}
+          </Text>
+          {l.length === 0 && <Text dimColor>Nenhuma ainda. Tudo no principal.</Text>}
+          {l.slice(-sala).map(d => (
             <Text
+              wrap="truncate-end"
               color={d.status === 'erro' ? 'error' : LEAN.includes(tipoCurto(d.tipo)) ? 'success' : undefined}
               dimColor={d.status === 'feito'}
             >
               {d.status === 'rodando' ? '▶' : d.status === 'erro' ? '✕' : d.status === 'fundo' ? '…' : '✓'}{' '}
               {tipoCurto(d.tipo)} · {curto(d.modelo)}
-              {d.tokens !== undefined ? ` · ${k(d.tokens)} tok` : ''}
-              {d.ferramentas !== undefined ? ` · ${d.ferramentas} ferr · ${Math.round((d.ms ?? 0) / 1000)}s` : ''}
+              {d.tokens !== undefined ? ` · ${k(d.tokens)}` : ''} · {d.descricao}
             </Text>
-            <Text dimColor>  {d.descricao}</Text>
-          </Box>
-        ))}
+          ))}
+        </Box>
       </Box>
     )
   })
