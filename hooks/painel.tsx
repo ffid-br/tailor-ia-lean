@@ -34,7 +34,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'lean-painel',
-      description: 'Abre o painel ao vivo do Tailor.ia Lean (delegações, modelos, contexto relido)',
+      description: 'Abre o painel ao vivo do Tailor.ia Lean (árvore de agentes por rodada, modelos, contexto relido)',
     })
     void $.ui.open({ id: PAINEL, title: TITULO })
     return next(e)
@@ -51,7 +51,9 @@ export const register: Register = on => {
         ? { ...t, ferramentasAgentes: t.ferramentasAgentes + 1 }
         : { ...t, ferramentasPrincipal: t.ferramentasPrincipal + 1 },
     ))
-    if (e.tool !== 'Agent' || e.agentId) return next(e)
+    if (e.tool !== 'Agent') return next(e)
+    // Rodada = turno do principal em que o agente nasceu; agentes da mesma rodada rodam em paralelo.
+    const rodada = (await read($, totais).catch(() => zero)).turnos
 
     const d: Delegacao = {
       id: e.tool_use_id,
@@ -60,6 +62,8 @@ export const register: Register = on => {
       modelo: e.model,
       status: 'rodando',
       inicio: Date.now(),
+      rodada,
+      pai: e.agentId,
     }
     await seguro(update($, delegacoes, l => [...l, d].slice(-50)))
     const r = await next(e)
@@ -80,6 +84,7 @@ export const register: Register = on => {
           ? { status: 'fundo', agentId: res?.agentId }
           : {
               status: 'feito',
+              agentId: res.agentId,
               modelo: res.resolvedModel ?? d.modelo,
               tokens: res.totalTokens,
               ferramentas: res.totalToolUseCount,
@@ -123,42 +128,78 @@ export const register: Register = on => {
     const t = await read($, totais)
     const total = t.ferramentasPrincipal + t.ferramentasAgentes
     const pct = total ? Math.round((t.ferramentasAgentes / total) * 100) : 0
-    const agora = l.filter(d => d.status === 'rodando' || d.status === 'fundo')
+    const rodando = l.filter(d => d.status === 'rodando' || d.status === 'fundo').length
+
     const porModelo = new Map<string, { n: number; tok: number }>()
     for (const d of l) {
       const m = curto(d.modelo)
       const v = porModelo.get(m) ?? { n: 0, tok: 0 }
       porModelo.set(m, { n: v.n + 1, tok: v.tok + (d.tokens ?? 0) })
     }
-    // Caixas fixas ocupam ~14 linhas; o resto vai para a lista de delegações.
-    const sala = Math.max(3, (e.viewport?.rows ?? 30) - 14 - agora.length - porModelo.size)
+
+    // Árvore: principal → rodada (quando há paralelo) → agente → subagentes.
+    type Linha = { txt: string; color?: string; dim?: boolean }
+    const filhos = new Map<string, Delegacao[]>()
+    for (const d of l) if (d.pai) filhos.set(d.pai, [...(filhos.get(d.pai) ?? []), d])
+    const raizes = l.filter(d => !d.pai)
+    const rodadas: Delegacao[][] = []
+    for (const d of raizes) {
+      const ult = rodadas[rodadas.length - 1]
+      if (ult && ult[0]?.rodada !== undefined && ult[0].rodada === d.rodada) ult.push(d)
+      else rodadas.push([d])
+    }
+    const icone = (d: Delegacao) =>
+      d.status === 'rodando' ? '▶' : d.status === 'erro' ? '✕' : d.status === 'fundo' ? '…' : '✓'
+    const rotulo = (d: Delegacao) => {
+      const quanto =
+        d.tokens !== undefined ? k(d.tokens) : d.inicio ? `há ${seg(Date.now() - d.inicio)}` : ''
+      return `${icone(d)} ${tipoCurto(d.tipo)} · ${curto(d.modelo)}${quanto ? ` · ${quanto}` : ''} · ${d.descricao}`
+    }
+    const cor = (d: Delegacao): Linha => ({
+      txt: '',
+      color:
+        d.status === 'erro' ? 'error' : d.status === 'rodando' || d.status === 'fundo' ? 'warning' : LEAN.includes(tipoCurto(d.tipo)) ? 'success' : undefined,
+      dim: d.status === 'feito',
+    })
+    const linhas: Linha[] = []
+    const agente = (d: Delegacao, pre: string, ultimo: boolean) => {
+      linhas.push({ ...cor(d), txt: `${pre}${ultimo ? '└─ ' : '├─ '}${rotulo(d)}` })
+      const fs = d.agentId ? filhos.get(d.agentId) ?? [] : []
+      fs.forEach((f, i) => agente(f, pre + (ultimo ? '   ' : '│  '), i === fs.length - 1))
+    }
+    rodadas.forEach((g, gi) => {
+      const ultG = gi === rodadas.length - 1
+      if (g.length === 1) return agente(g[0]!, '', ultG)
+      const ativos = g.filter(d => d.status === 'rodando' || d.status === 'fundo').length
+      linhas.push({
+        txt: `${ultG ? '└─ ' : '├─ '}⇉ ${g.length} em paralelo${ativos ? ` · ${ativos} rodando` : ''}`,
+        color: ativos ? 'warning' : undefined,
+        dim: !ativos,
+      })
+      g.forEach((d, i) => agente(d, ultG ? '   ' : '│  ', i === g.length - 1))
+    })
+
+    const sala = Math.max(4, (e.viewport?.rows ?? 30) - 8 - porModelo.size)
+    const visiveis = linhas.slice(-sala)
     const caixa = { borderStyle: 'round', flexDirection: 'column', paddingX: 1 } as const
 
     return (
       <Box flexDirection="column" gap={1}>
-        <Box {...caixa}>
-          <Text bold>Principal · {curto(t.modelo)}</Text>
-          <Text>
-            {t.turnos} turnos · relido {k(t.relido)} · saída {k(t.saida)}
+        <Box {...caixa} borderColor={rodando ? 'warning' : undefined}>
+          <Text bold>
+            {curto(t.modelo)} · principal{rodando ? ` · ${rodando} rodando` : ''}
           </Text>
           <Text dimColor>
-            ferramentas: {t.ferramentasPrincipal} no principal · {t.ferramentasAgentes} em agentes ({pct}%)
+            {t.turnos} turnos · relido {k(t.relido)} · saída {k(t.saida)} · {pct}% das ferramentas em agentes
           </Text>
-        </Box>
-
-        {agora.length > 0 && (
-          <Box {...caixa} borderColor="warning">
-            <Text bold color="warning">
-              Agora · {agora.length} {agora.length === 1 ? 'agente' : 'em paralelo'}
+          {linhas.length === 0 && <Text dimColor>Nenhuma delegação ainda. Tudo no principal.</Text>}
+          {linhas.length > visiveis.length && <Text dimColor>⋮ {linhas.length - visiveis.length} linhas acima</Text>}
+          {visiveis.map(x => (
+            <Text wrap="truncate-end" color={x.color} dimColor={x.dim}>
+              {x.txt}
             </Text>
-            {agora.map(d => (
-              <Text wrap="truncate-end">
-                {d.status === 'fundo' ? '…' : '▶'} {tipoCurto(d.tipo)} · {curto(d.modelo)}
-                {d.inicio ? ` · há ${seg(Date.now() - d.inicio)}` : ''} · {d.descricao}
-              </Text>
-            ))}
-          </Box>
-        )}
+          ))}
+        </Box>
 
         {porModelo.size > 0 && (
           <Box {...caixa}>
@@ -172,25 +213,6 @@ export const register: Register = on => {
               ))}
           </Box>
         )}
-
-        <Box {...caixa}>
-          <Text bold>
-            Delegações{l.length > 0 ? ` · ${l.length}` : ''}
-            {l.length > sala ? ` (últimas ${sala})` : ''}
-          </Text>
-          {l.length === 0 && <Text dimColor>Nenhuma ainda. Tudo no principal.</Text>}
-          {l.slice(-sala).map(d => (
-            <Text
-              wrap="truncate-end"
-              color={d.status === 'erro' ? 'error' : LEAN.includes(tipoCurto(d.tipo)) ? 'success' : undefined}
-              dimColor={d.status === 'feito'}
-            >
-              {d.status === 'rodando' ? '▶' : d.status === 'erro' ? '✕' : d.status === 'fundo' ? '…' : '✓'}{' '}
-              {tipoCurto(d.tipo)} · {curto(d.modelo)}
-              {d.tokens !== undefined ? ` · ${k(d.tokens)}` : ''} · {d.descricao}
-            </Text>
-          ))}
-        </Box>
       </Box>
     )
   })

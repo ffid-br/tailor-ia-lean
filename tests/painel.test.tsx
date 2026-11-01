@@ -42,9 +42,9 @@ test('delegação ao batedor aparece com modelo e tokens', async ($, on) => {
 
   const ui = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
   const linha = await ui.find({ type: 'Text', text: /batedor/ })
-  expect(linha?.text).toBe('✓ batedor · haiku-5-5 · 12.3k · onde fica o login')
-  expect((await ui.find({ type: 'Text', text: /ferramentas:/ }))?.text).toBe(
-    'ferramentas: 2 no principal · 0 em agentes (0%)',
+  expect(linha?.text).toBe('└─ ✓ batedor · haiku-5-5 · 12.3k · onde fica o login')
+  expect((await ui.find({ type: 'Text', text: /turnos/ }))?.text).toBe(
+    '0 turnos · relido 0 · saída 0 · 0% das ferramentas em agentes',
   )
   await ui.unmount()
 })
@@ -64,8 +64,8 @@ test('agente em segundo plano fecha no turn.complete dele', async ($, on) => {
     prompt: 'revisar diff',
   })
   const ui = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /Agora/ }))?.text).toBe('Agora · 1 agente')
-  expect((await ui.find({ type: 'Text', text: /revisor .*há/ }))?.text).toMatch(/^… revisor · \? · há \d+s · revisar diff$/)
+  expect((await ui.find({ type: 'Text', text: /revisor/ }))?.text).toMatch(/^└─ … revisor · \? · há \d+s · revisar diff$/)
+  expect((await ui.find({ type: 'Text', text: /principal/ }))?.text).toMatch(/1 rodando$/)
   await ui.unmount()
 
   await $.turn.complete({
@@ -78,8 +78,7 @@ test('agente em segundo plano fecha no turn.complete dele', async ($, on) => {
     usage: { model: 'claude-sonnet-5-5', input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 3000, cache_creation_input_tokens: 500 },
   })
   const ui2 = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
-  expect((await ui2.find({ type: 'Text', text: /revisor/ }))?.text).toBe('✓ revisor · sonnet-5-5 · 5.0k · revisar diff')
-  expect(await ui2.find({ type: 'Text', text: /Agora/ })).toBeFalsy()
+  expect((await ui2.find({ type: 'Text', text: /revisor/ }))?.text).toBe('└─ ✓ revisor · sonnet-5-5 · 5.0k · revisar diff')
   expect((await ui2.find({ type: 'Text', text: /agente.*tok/ }))?.text).toBe('sonnet-5-5 · 1 agente · 5.0k tok')
   await ui2.unmount()
 })
@@ -87,7 +86,23 @@ test('agente em segundo plano fecha no turn.complete dele', async ($, on) => {
 test('sem delegação, painel diz que tudo ficou no principal', async $ => {
   const ui = await $.ui.mount({ ...PAINEL, surface: 'desktop' })
   expect((await ui.find({ type: 'Text', text: /Nenhuma/ }))?.text).toBe(
-    'Nenhuma ainda. Tudo no principal.',
+    'Nenhuma delegação ainda. Tudo no principal.',
   )
+  await ui.unmount()
+})
+
+test('agentes da mesma rodada viram um nó em paralelo', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'lean-painel' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('tool.call', () => ({ result: { resolvedModel: 'claude-haiku-5-5', totalTokens: 1000, totalToolUseCount: 1, totalDurationMs: 1000 } }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  for (const q of ['onde A', 'onde B']) {
+    await $.tool.call({ tool: 'Agent', subagent_type: 'tailor-ia-lean:batedor', description: q, prompt: q })
+  }
+  const ui = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /paralelo/ }))?.text).toBe('└─ ⇉ 2 em paralelo')
+  expect((await ui.find({ type: 'Text', text: /onde B/ }))?.text).toBe('   └─ ✓ batedor · haiku-5-5 · 1.0k · onde B')
   await ui.unmount()
 })

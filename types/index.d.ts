@@ -9,6 +9,8 @@ export type Delegacao = {
   ms?: number
   agentId?: string
   inicio?: number
+  rodada?: number
+  pai?: string
 }
 
 export type Totais = {
