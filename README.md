@@ -53,6 +53,7 @@ Recomendado junto, mesma lógica de instalação:
 | Agente `batedor` | localizar código (arquivo:linha, callers) | Haiku |
 | Agente `operario` | implementar passo já especificado, até 3 arquivos, roda gates | Sonnet |
 | Agente `revisor` | defeitos do diff, uma linha cada | Sonnet |
+| Painel `/lean-painel` | abre sozinho em terminal largo; `/lean-painel` abre em qualquer largura | zero token |
 
 ## Orquestrar com modelos mais baratos
 
@@ -60,6 +61,14 @@ O modelo principal planeja e integra. Localização, edição mecânica e revis�
 em Haiku e Sonnet, que custam uma fração e não ocupam o seu contexto. `/orquestrar` descreve o
 fluxo: entender → `batedor` localiza → plano em passos → `operario` por passo → `revisor` →
 integrar. Tarefa de um arquivo: faça direto, subagente não compensa.
+
+## Painel ao vivo
+
+No Claude Code, um painel ao lado do chat mostra quem está fazendo o trabalho enquanto ele
+acontece: cada delegação (`batedor`, `operario`, `revisor` ou outro agente) com modelo, tokens,
+ferramentas e duração; o contexto relido e a saída do modelo principal; e quantas ferramentas
+rodaram no principal contra nos agentes. Abre sozinho em terminal com 144+ colunas; em qualquer
+largura, `/lean-painel`. Não entra no contexto do modelo. No Codex o painel não existe.
 
 ## Memória: guardar, compactar, limpar
 
