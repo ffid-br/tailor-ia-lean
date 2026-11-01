@@ -18,7 +18,7 @@ const zero: Totais = {
   ferramentasAgentes: 0,
 }
 const delegacoes = atom({ plugin: 'tailor-ia-lean', key: 'delegacoes' } as const, [] as Delegacao[], {
-  shape: 'delegacoes-1',
+  shape: 'delegacoes-2',
 })
 const totais = atom({ plugin: 'tailor-ia-lean', key: 'totais' } as const, zero, { shape: 'totais-1' })
 
@@ -69,11 +69,12 @@ export const register: Register = on => {
         totalTokens: number
         totalToolUseCount: number
         totalDurationMs: number
+        agentId: string
       }>
       // Sem totalTokens = agente lançado em segundo plano; o fim chega depois.
       fim =
         res?.totalTokens === undefined
-          ? { status: 'fundo' }
+          ? { status: 'fundo', agentId: res?.agentId }
           : {
               status: 'feito',
               modelo: res.resolvedModel ?? d.modelo,
@@ -88,15 +89,27 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     const u = e.usage
-    if (!e.agentId && u) {
-      await update($, totais, t => ({
+    if (e.agentId) {
+      // Fim de agente lançado em segundo plano: o tool.call já voltou, o custo chega aqui.
+      const tok = u ? u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens + u.output_tokens : undefined
+      await seguro(
+        update($, delegacoes, l =>
+          l.map(x =>
+            x.agentId === e.agentId && x.status === 'fundo'
+              ? { ...x, status: 'feito' as const, modelo: u?.model ?? x.modelo, tokens: tok }
+              : x,
+          ),
+        ),
+      )
+    } else if (u) {
+      await seguro(update($, totais, t => ({
         ...t,
         turnos: t.turnos + 1,
         relido: t.relido + u.input_tokens + u.cache_read_input_tokens,
         escrito: t.escrito + u.cache_creation_input_tokens,
         saida: t.saida + u.output_tokens,
         modelo: u.model,
-      }))
+      })))
     }
     return next(e)
   })
@@ -129,7 +142,8 @@ export const register: Register = on => {
             >
               {d.status === 'rodando' ? '▶' : d.status === 'erro' ? '✕' : d.status === 'fundo' ? '…' : '✓'}{' '}
               {tipoCurto(d.tipo)} · {curto(d.modelo)}
-              {d.tokens !== undefined ? ` · ${k(d.tokens)} tok · ${d.ferramentas} ferr · ${Math.round((d.ms ?? 0) / 1000)}s` : ''}
+              {d.tokens !== undefined ? ` · ${k(d.tokens)} tok` : ''}
+              {d.ferramentas !== undefined ? ` · ${d.ferramentas} ferr · ${Math.round((d.ms ?? 0) / 1000)}s` : ''}
             </Text>
             <Text dimColor>  {d.descricao}</Text>
           </Box>

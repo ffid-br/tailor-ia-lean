@@ -7,6 +7,7 @@ export type Delegacao = {
   tokens?: number
   ferramentas?: number
   ms?: number
+  agentId?: string
 }
 
 export type Totais = {

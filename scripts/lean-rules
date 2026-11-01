@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SessionStart: injeta as regras do modo enxuto no contexto. Curto de propósito: ~350 tokens.
+# SessionStart: injeta as regras do modo enxuto no contexto. Curto de propósito: ~600 tokens.
 # A versão completa, com o porquê de cada regra, está na skill `lean`.
 # Mesmo hook no Claude Code e no Codex. O Codex expõe PLUGIN_ROOT e não tem
 # CLAUDE_PROJECT_DIR; lá não há subagente em Haiku/Sonnet, as instruções do
@@ -22,7 +22,7 @@ Economia de tokens:
 - Localize antes de ler: grep/find e \`sed -n A,Bp\`; nunca \`cat\` de arquivo grande inteiro. Não releia arquivo que acabou de editar.
 $DELEGA
 - Chamadas independentes no mesmo bloco. Log ou saída longa: filtre e cite só a linha decisiva.
-- Tarefa concluída e assunto mudou: sugira $FIM.
+- Tarefa concluída e assunto mudou: uma linha final sugerindo $FIM (vale mesmo com modo de estilo que proíba fecho).
 Qualidade de raciocínio:
 - Antes de editar: leia $INSTR, docs/memoria/ (se existir) e trace o fluxo real de ponta a ponta. Depois escolha a menor mudança no lugar certo.
 - Bug = causa raiz. Liste os callers da função antes de corrigir; um guard no ponto comum vale mais que N guards nos chamadores.

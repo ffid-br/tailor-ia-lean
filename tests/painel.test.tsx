@@ -49,6 +49,38 @@ test('delegação ao batedor aparece com modelo e tokens', async ($, on) => {
   await ui.unmount()
 })
 
+test('agente em segundo plano fecha no turn.complete dele', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'lean-painel' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('tool.call', () => ({ result: { status: 'async_launched', agentId: 'ag1' } }))
+  on('turn.complete', (_, e) => ({ text: e.answer }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({
+    tool: 'Agent',
+    subagent_type: 'tailor-ia-lean:revisor',
+    description: 'revisar diff',
+    prompt: 'revisar diff',
+  })
+  const ui = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /revisor/ }))?.text).toBe('… revisor · ?')
+  await ui.unmount()
+
+  await $.turn.complete({
+    answer: 'ok',
+    durationMs: 1,
+    isAborted: false,
+    turnId: 't1',
+    reason: 'answer',
+    agentId: 'ag1',
+    usage: { model: 'claude-sonnet-5-5', input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 3000, cache_creation_input_tokens: 500 },
+  })
+  const ui2 = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
+  expect((await ui2.find({ type: 'Text', text: /revisor/ }))?.text).toBe('✓ revisor · sonnet-5-5 · 5.0k tok')
+  await ui2.unmount()
+})
+
 test('sem delegação, painel diz que tudo ficou no principal', async $ => {
   const ui = await $.ui.mount({ ...PAINEL, surface: 'desktop' })
   expect((await ui.find({ type: 'Text', text: /Nenhuma/ }))?.text).toBe(
