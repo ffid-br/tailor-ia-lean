@@ -9,7 +9,9 @@ em produção. Três tarefas somente leitura:
 - **T3** investigar um bug de filtro de status: localizar, listar callers, propor a menor correção em texto.
 
 Reproduzir: `REPO=/caminho/do/repo MODEL=opus benchmarks/run.sh`. Liga e desliga os plugins via
-`claude plugin enable|disable` entre condições; restaura tudo ao fim.
+`claude plugin enable|disable` entre condições; restaura tudo ao fim. O caveman fica desligado em
+toda condição que não o nomeia, então o ruleset dele (~1,3k tokens por subagente desde o caveman 4)
+não infla os números do lean sozinho.
 
 ## v4 · Opus 5.5 · plugin 0.4.0 · 5 repetições · 2026-10-31
 

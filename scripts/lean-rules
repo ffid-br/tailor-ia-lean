@@ -15,10 +15,19 @@ else
 - Tem a resposta? Pare. Não confirme com leitura extra; cada turno a mais relê o contexto inteiro.'
 fi
 
+# Caveman ligado já injeta "resposta curta, sem narrar, sem repetir": não duplicar.
+# Ligado = habilitado no settings do usuário e flag de modo diferente de off.
+# ponytail: só olha ~/.claude/settings.json; habilitação por projeto não conta.
+CURTA='- Resposta curta, direta, sem narrar tool calls nem repetir o que o usuário já sabe. Código antes de prosa.'
+if [ "$P" = / ] && grep -q '"caveman@caveman": *true' "$HOME/.claude/settings.json" 2>/dev/null \
+  && [ -s "$HOME/.claude/.caveman-active" ] && [ "$(cat "$HOME/.claude/.caveman-active")" != off ]; then
+  CURTA='- Código antes de prosa (estilo de resposta: regras do caveman, já ativas).'
+fi
+
 cat <<TXT
 # Tailor.ia Lean — ativo nesta sessão
 Economia de tokens:
-- Resposta curta, direta, sem narrar tool calls nem repetir o que o usuário já sabe. Código antes de prosa.
+$CURTA
 - Localize antes de ler: grep/find e \`sed -n A,Bp\`; nunca \`cat\` de arquivo grande inteiro. Não releia arquivo que acabou de editar.
 $DELEGA
 - Chamadas independentes no mesmo bloco. Log ou saída longa: filtre e cite só a linha decisiva.
