@@ -21,6 +21,10 @@ const delegacoes = atom({ plugin: 'tailor-ia-lean', key: 'delegacoes' } as const
   shape: 'delegacoes-2',
 })
 const totais = atom({ plugin: 'tailor-ia-lean', key: 'totais' } as const, zero, { shape: 'totais-1' })
+// Relógio do painel: só anda enquanto há agente rodando, para o "há Xs" e o contador ao vivo.
+const agora = atom({ plugin: 'tailor-ia-lean', key: 'agora' } as const, 0, { shape: 'agora-1' })
+// Agente de outra sessão ou que perdeu o fim (reload do plugin) não fica "rodando" para sempre.
+const VENCE_MS = 60 * 60_000
 
 const k = (n = 0) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : String(n)
@@ -37,6 +41,10 @@ export const register: Register = on => {
       description: 'Abre o painel ao vivo do Tailor.ia Lean (árvore de agentes por rodada, modelos, contexto relido)',
     })
     void $.ui.open({ id: PAINEL, title: TITULO })
+    void $.clock.every(2000, async () => {
+      const l = await read($, delegacoes).catch(() => [] as Delegacao[])
+      if (l.some(d => d.status === 'rodando' || d.status === 'fundo')) await seguro(update($, agora, () => Date.now()))
+    })
     return next(e)
   })
 
@@ -126,9 +134,13 @@ export const register: Register = on => {
     const { Box, Text } = $.ui.resolve(e)
     const l = await read($, delegacoes)
     const t = await read($, totais)
+    const tick = await read($, agora)
+    const ja = Math.max(tick, Date.now())
+    const vivo = (d: Delegacao) =>
+      (d.status === 'rodando' || d.status === 'fundo') && (!d.inicio || ja - d.inicio < VENCE_MS)
     const total = t.ferramentasPrincipal + t.ferramentasAgentes
     const pct = total ? Math.round((t.ferramentasAgentes / total) * 100) : 0
-    const rodando = l.filter(d => d.status === 'rodando' || d.status === 'fundo').length
+    const rodando = l.filter(vivo).length
 
     const porModelo = new Map<string, { n: number; tok: number }>()
     for (const d of l) {
@@ -152,14 +164,14 @@ export const register: Register = on => {
       d.status === 'rodando' ? '▶' : d.status === 'erro' ? '✕' : d.status === 'fundo' ? '…' : '✓'
     const rotulo = (d: Delegacao) => {
       const quanto =
-        d.tokens !== undefined ? k(d.tokens) : d.inicio ? `há ${seg(Date.now() - d.inicio)}` : ''
+        d.tokens !== undefined ? k(d.tokens) : d.inicio && vivo(d) ? `há ${seg(ja - d.inicio)}` : vivo(d) ? '' : 'sem fim'
       return `${icone(d)} ${tipoCurto(d.tipo)} · ${curto(d.modelo)}${quanto ? ` · ${quanto}` : ''} · ${d.descricao}`
     }
     const cor = (d: Delegacao): Linha => ({
       txt: '',
       color:
-        d.status === 'erro' ? 'error' : d.status === 'rodando' || d.status === 'fundo' ? 'warning' : LEAN.includes(tipoCurto(d.tipo)) ? 'success' : undefined,
-      dim: d.status === 'feito',
+        d.status === 'erro' ? 'error' : vivo(d) ? 'warning' : LEAN.includes(tipoCurto(d.tipo)) ? 'success' : undefined,
+      dim: d.status === 'feito' || (d.status !== 'erro' && !vivo(d)),
     })
     const linhas: Linha[] = []
     const agente = (d: Delegacao, pre: string, ultimo: boolean) => {
@@ -170,7 +182,7 @@ export const register: Register = on => {
     rodadas.forEach((g, gi) => {
       const ultG = gi === rodadas.length - 1
       if (g.length === 1) return agente(g[0]!, '', ultG)
-      const ativos = g.filter(d => d.status === 'rodando' || d.status === 'fundo').length
+      const ativos = g.filter(vivo).length
       linhas.push({
         txt: `${ultG ? '└─ ' : '├─ '}⇉ ${g.length} em paralelo${ativos ? ` · ${ativos} rodando` : ''}`,
         color: ativos ? 'warning' : undefined,

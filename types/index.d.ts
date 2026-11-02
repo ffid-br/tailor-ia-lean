@@ -28,6 +28,7 @@ declare module 'claude-code' {
     'tailor-ia-lean': {
       delegacoes: Shaped<Delegacao[]>
       totais: Shaped<Totais>
+      agora: Shaped<number>
     }
   }
 }
