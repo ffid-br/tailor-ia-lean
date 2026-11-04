@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
 const PAINEL = {
   plugin: 'tailor-ia-lean',
@@ -15,6 +15,7 @@ const PAINEL = {
 } as const
 
 test('delegação ao batedor aparece com modelo e tokens', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
   on('command.register', () => ({ value: { command: 'lean-painel' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
@@ -50,6 +51,7 @@ test('delegação ao batedor aparece com modelo e tokens', async ($, on) => {
 })
 
 test('agente em segundo plano fecha no turn.complete dele', async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000_000 })
   on('command.register', () => ({ value: { command: 'lean-painel' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
@@ -63,8 +65,10 @@ test('agente em segundo plano fecha no turn.complete dele', async ($, on) => {
     description: 'revisar diff',
     prompt: 'revisar diff',
   })
+  // "há Xs" anda com o relógio do engine ($.clock.now), não com Date.now()
+  await clock.set(1_007_000)
   const ui = await $.ui.mount({ ...PAINEL, surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /revisor/ }))?.text).toMatch(/^└─ … revisor · \? · há \d+s · revisar diff$/)
+  expect((await ui.find({ type: 'Text', text: /revisor/ }))?.text).toBe('└─ … revisor · ? · há 7s · revisar diff')
   expect((await ui.find({ type: 'Text', text: /principal/ }))?.text).toMatch(/1 rodando$/)
   await ui.unmount()
 
@@ -83,7 +87,8 @@ test('agente em segundo plano fecha no turn.complete dele', async ($, on) => {
   await ui2.unmount()
 })
 
-test('sem delegação, painel diz que tudo ficou no principal', async $ => {
+test('sem delegação, painel diz que tudo ficou no principal', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
   const ui = await $.ui.mount({ ...PAINEL, surface: 'desktop' })
   expect((await ui.find({ type: 'Text', text: /Nenhuma/ }))?.text).toBe(
     'Nenhuma delegação ainda. Tudo no principal.',
@@ -92,6 +97,7 @@ test('sem delegação, painel diz que tudo ficou no principal', async $ => {
 })
 
 test('agentes da mesma rodada viram um nó em paralelo', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
   on('command.register', () => ({ value: { command: 'lean-painel' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))

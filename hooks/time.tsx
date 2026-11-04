@@ -109,7 +109,7 @@ export async function timeStart($: EngineInterface) {
         return nb
       })
       await footer($)
-    })()
+    })().catch(() => undefined) // o poll nunca derruba o painel
   })
   stopPoll = () => t.cancel()
 }

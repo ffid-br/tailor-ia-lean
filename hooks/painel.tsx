@@ -23,6 +23,7 @@ const delegacoes = atom({ plugin: 'tailor-ia-lean', key: 'delegacoes' } as const
 })
 const totais = atom({ plugin: 'tailor-ia-lean', key: 'totais' } as const, zero, { shape: 'totais-1' })
 // Relógio do painel: só anda enquanto há agente rodando, para o "há Xs" e o contador ao vivo.
+// Hora sempre de $.clock.now(): Date.now() no módulo do mod não anda.
 const agora = atom({ plugin: 'tailor-ia-lean', key: 'agora' } as const, 0, { shape: 'agora-1' })
 // Agente de outra sessão ou que perdeu o fim (reload do plugin) não fica "rodando" para sempre.
 const VENCE_MS = 60 * 60_000
@@ -46,7 +47,10 @@ export const register: Register = on => {
     await seguro(timeStart($))
     void $.clock.every(2000, async () => {
       const l = await read($, delegacoes).catch(() => [] as Delegacao[])
-      if (l.some(d => d.status === 'rodando' || d.status === 'fundo')) await seguro(update($, agora, () => Date.now()))
+      if (l.some(d => d.status === 'rodando' || d.status === 'fundo')) {
+        const now = await $.clock.now()
+        await seguro(update($, agora, () => now))
+      }
     })
     return next(e)
   })
@@ -69,6 +73,7 @@ export const register: Register = on => {
     }
     // Rodada = turno do principal em que o agente nasceu; agentes da mesma rodada rodam em paralelo.
     const rodada = (await read($, totais).catch(() => zero)).turnos
+    const inicio = await $.clock.now()
 
     const d: Delegacao = {
       id: e.tool_use_id,
@@ -76,7 +81,7 @@ export const register: Register = on => {
       descricao: e.description,
       modelo: e.model,
       status: 'rodando',
-      inicio: Date.now(),
+      inicio,
       rodada,
       pai: e.agentId,
     }
@@ -144,7 +149,7 @@ export const register: Register = on => {
     const l = await read($, delegacoes)
     const t = await read($, totais)
     const tick = await read($, agora)
-    const ja = Math.max(tick, Date.now())
+    const ja = Math.max(tick, await $.clock.now())
     const vivo = (d: Delegacao) =>
       (d.status === 'rodando' || d.status === 'fundo') && (!d.inicio || ja - d.inicio < VENCE_MS)
     const total = t.ferramentasPrincipal + t.ferramentasAgentes
