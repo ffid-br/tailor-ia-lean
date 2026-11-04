@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { Delegacao, Totais } from '../types'
+import { registerTime, timeStart, timeToolCall, timeTurnDone } from './time'
 
 // Painel ao vivo do modo enxuto: quem está fazendo o trabalho (principal ou
 // batedor/operario/revisor), em que modelo, e quanto contexto foi relido.
@@ -35,12 +36,14 @@ const tipoCurto = (t: string) => t.replace(/^tailor-ia-lean:/, '')
 const seguro = (p: Promise<unknown>) => p.catch(() => undefined)
 
 export const register: Register = on => {
+  registerTime(on)
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'lean-painel',
       description: 'Abre o painel ao vivo do Tailor.ia Lean (árvore de agentes por rodada, modelos, contexto relido)',
     })
     void $.ui.open({ id: PAINEL, title: TITULO })
+    await seguro(timeStart($))
     void $.clock.every(2000, async () => {
       const l = await read($, delegacoes).catch(() => [] as Delegacao[])
       if (l.some(d => d.status === 'rodando' || d.status === 'fundo')) await seguro(update($, agora, () => Date.now()))
@@ -59,7 +62,11 @@ export const register: Register = on => {
         ? { ...t, ferramentasAgentes: t.ferramentasAgentes + 1 }
         : { ...t, ferramentasPrincipal: t.ferramentasPrincipal + 1 },
     ))
-    if (e.tool !== 'Agent') return next(e)
+    if (e.tool !== 'Agent') {
+      const r = await next(e)
+      await timeToolCall($, e, r)
+      return r
+    }
     // Rodada = turno do principal em que o agente nasceu; agentes da mesma rodada rodam em paralelo.
     const rodada = (await read($, totais).catch(() => zero)).turnos
 
@@ -100,6 +107,7 @@ export const register: Register = on => {
             }
     }
     await seguro(update($, delegacoes, l => l.map(x => (x.id === d.id ? { ...x, ...fim } : x))))
+    await timeToolCall($, e, r)
     return r
   })
 
@@ -127,6 +135,7 @@ export const register: Register = on => {
         modelo: u.model,
       })))
     }
+    await seguro(timeTurnDone($, e.agentId))
     return next(e)
   })
 

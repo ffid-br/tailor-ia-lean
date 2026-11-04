@@ -23,12 +23,34 @@ export type Totais = {
   ferramentasAgentes: number
 }
 
+export type Mate = {
+  id: string
+  name: string
+  role: string
+  desc: string
+  model: string
+  status: string
+  tools: number
+  lastTool: string
+}
+export type Task = { id: string; subject: string; status: string; owner: string }
+export type LogLine = { at: number; who: string; text: string }
+export type Board = {
+  mates: Mate[]
+  tasks: Task[]
+  log: LogLine[]
+  leadBusy: boolean
+  leadModel: string
+  startedAt: number
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'tailor-ia-lean': {
       delegacoes: Shaped<Delegacao[]>
       totais: Shaped<Totais>
       agora: Shaped<number>
+      time: Shaped<Board>
     }
   }
 }

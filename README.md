@@ -54,6 +54,7 @@ Recomendado junto, mesma lógica de instalação:
 | Agente `operario` | implementar passo já especificado, até 3 arquivos, roda gates | Sonnet |
 | Agente `revisor` | defeitos do diff, uma linha cada | Sonnet |
 | Painel `/lean-painel` | abre sozinho em terminal largo; `/lean-painel` abre em qualquer largura | zero token |
+| Painel `/lean-time` | visão de time: líder, colegas por papel, tarefas e log | zero token |
 
 ## Orquestrar com modelos mais baratos
 
@@ -69,6 +70,15 @@ acontece: cada delegação (`batedor`, `operario`, `revisor` ou outro agente) co
 ferramentas e duração; o contexto relido e a saída do modelo principal; e quantas ferramentas
 rodaram no principal contra nos agentes. Abre sozinho em terminal com 144+ colunas; em qualquer
 largura, `/lean-painel`. Não entra no contexto do modelo. No Codex o painel não existe.
+
+`/lean-time` abre a visão de time, no formato dos agent teams: o líder com três checkpoints
+(antes do plano, colega travado, antes de concluir), as tarefas compartilhadas com o contador
+`feitas/total`, uma caixa por colega com papel (`batedor`, `operario`, `revisor`), modelo e
+estado, e o log da sessão com delegações e mensagens entre colegas. A barra de status resume:
+`sonnet [running]  colegas [2/3]  líder [liderando]  tarefas [10/18]`. A barra de um colega só
+mostra fração quando ele é dono de tarefas; sem isso, mostra quantas ferramentas usou. Com
+`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, as tarefas e mensagens do time entram sozinhas.
+Precisa de Claude Code com hooks module; em versão antiga ou no Codex não aparece.
 
 ## Memória: guardar, compactar, limpar
 
