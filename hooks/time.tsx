@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, ToolCallInput, ToolCallResult } from 'claude-code'
 
-import type { Board, Mate, Task } from '../types'
+import type { Board, Mate, MateStatus, Task, TaskStatus } from '../types'
 
 // Visão de time (estilo agent teams): líder, colegas por papel do lean, tarefas e log.
 // Complementa o /lean-painel, que mostra a árvore e o custo em tokens.
@@ -12,11 +12,11 @@ const MATE = '#7aa2f7' // azul: colegas
 const TASK = '#9ece6a' // verde: tarefas
 const REVIEW = '#bb9af7' // roxo: revisão
 
-const EMPTY: Board = { mates: [], tasks: [], log: [], leadBusy: false, leadModel: '', startedAt: 0, peak: 0 }
+const EMPTY: Board = { mates: [], tasks: [], log: [], leadBusy: false, leadModel: '', startedAt: 0, peak: 0, leadTokens: 0 }
 // Troque a tag quando os campos mudarem: ela recusa o que uma versão antiga gravou.
-const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-2' })
+const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-3' })
 
-const RUNNING = ['pending', 'running']
+const RUNNING: MateStatus[] = ['pending', 'running']
 const isRunning = (m: Mate) => RUNNING.includes(m.status)
 /** Guarda o pico de colegas rodando juntos: o "rodando" do momento zera quando todos entregam. */
 export const withPeak = (b: Board): Board => ({ ...b, peak: Math.max(b.peak, b.mates.filter(isRunning).length) })
@@ -29,6 +29,18 @@ export const modelLabel = (id: string): string => {
   const fam = m[1] ?? ''
   return fam.charAt(0).toUpperCase() + fam.slice(1).toLowerCase() + ' ' + (m[2] ?? '') + (m[3] ? '.' + m[3] : '')
 }
+
+/** 1234 → "1.2k"; também usado pelo /lean-painel. */
+export const k = (n = 0) =>
+  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : String(n)
+
+const TASK_STATUS: TaskStatus[] = ['pending', 'in_progress', 'completed']
+/** Só os status que o painel conhece; o resto (inclusive 'deleted') volta undefined. */
+export const taskStatus = (v: unknown): TaskStatus | undefined => (TASK_STATUS.includes(v as TaskStatus) ? (v as TaskStatus) : undefined)
+
+/** Tokens do líder mais os dos colegas guardados. */
+// shortcut: colegas além dos 6 guardados saem da soma, guardar um acumulado se precisar do total exato
+export const teamTokens = (b: Board) => b.leadTokens + b.mates.reduce((s, m) => s + (m.tokens ?? 0), 0)
 
 export const bar = (done: number, total: number, width: number): string => {
   const f = total > 0 ? Math.round((Math.min(done, total) / total) * width) : 0
@@ -55,7 +67,7 @@ const say = (b: Board, who: string, text: string, at: number): Board => ({
   log: [...b.log, { at, who, text: text.replace(/\s+/g, ' ').slice(0, 90) }].slice(-40),
 })
 
-const setStatus = (b: Board, id: string, status: string): Board => ({
+const setStatus = (b: Board, id: string, status: MateStatus): Board => ({
   ...b,
   mates: b.mates.map(m => (m.id === id ? { ...m, status } : m)),
 })
@@ -74,7 +86,7 @@ async function footer($: EngineInterface) {
   const done = b.tasks.filter(t => t.status === 'completed').length
   const phase = { idle: 'parado', plan: 'planejando', lead: 'liderando', blocked: 'destravando', review: 'revisando' }[phaseOf(b)]
   const models = [...new Set(b.mates.map(m => (modelLabel(m.model).split(' ')[0] ?? '').toLowerCase()))].join('+') || 'time'
-  $.ui.status(`${models} [${run ? 'running' : 'idle'}]  colegas [${run}/${b.mates.length}]  líder [${phase}]  tarefas [${done}/${b.tasks.length}]`)
+  $.ui.status(`${models} [${run ? 'running' : 'idle'}]  colegas [${run}/${b.mates.length}]  líder [${phase}]  tarefas [${done}/${b.tasks.length}]  tokens [${k(teamTokens(b))}]`)
 }
 
 
@@ -117,13 +129,16 @@ export async function timeStart($: EngineInterface) {
 }
 
 // turn.complete do painel chama isto.
-export async function timeTurnDone($: EngineInterface, agentId?: string) {
+// `tokens`: o usage do turno (TurnUsage é por turno, então soma).
+export async function timeTurnDone($: EngineInterface, agentId?: string, tokens = 0) {
   const at = await $.clock.now()
   await update($, board, b => {
-    if (!agentId) return { ...b, leadBusy: false }
+    if (!agentId) return { ...b, leadBusy: false, leadTokens: (b.leadTokens ?? 0) + tokens }
     const m = b.mates.find(x => x.id === agentId)
+    if (!m) return b
+    const nb = { ...b, mates: b.mates.map(x => (x.id === agentId ? { ...x, tokens: (x.tokens ?? 0) + tokens } : x)) }
     // turno do subagente acabou (relatório entregue): fim, até uma mensagem retomá-lo
-    return m && isRunning(m) ? say(setStatus(b, agentId, 'completed'), m.name, 'entregou', at) : b
+    return isRunning(m) ? say(setStatus(nb, agentId, 'completed'), m.name, `entregou · ${k(tokens)} tokens`, at) : nb
   })
   await footer($)
 }
@@ -147,19 +162,29 @@ export async function timeToolCall($: EngineInterface, e: ToolCallInput, ran: To
         const task = (ran.result as { task?: { id: string; subject: string } }).task
         if (task) nb = say({ ...nb, tasks: [...nb.tasks, { id: task.id, subject: task.subject, status: 'pending', owner: '' }] }, who, `tarefa nova: ${task.subject}`, at)
       } else if (e.tool === 'TaskUpdate') {
-        const i = { taskId: e.taskId, status: e.status as string | undefined, owner: e.owner }
-        const t = nb.tasks.find(x => x.id === i.taskId)
-        nb = {
-          ...nb,
-          tasks: nb.tasks
-            .map(x => (x.id === i.taskId ? { ...x, status: i.status ?? x.status, owner: i.owner ?? x.owner } : x))
-            .filter(x => x.status !== 'deleted'),
+        const id = typeof e.taskId === 'string' ? e.taskId : undefined
+        const t = nb.tasks.find(x => x.id === id)
+        if (t) {
+          const gone = (e.status as unknown) === 'deleted'
+          const status = taskStatus(e.status)
+          const owner = typeof e.owner === 'string' ? e.owner : undefined
+          nb = {
+            ...nb,
+            tasks: gone ? nb.tasks.filter(x => x.id !== id) : nb.tasks.map(x => (x.id === id ? { ...x, status: status ?? x.status, owner: owner ?? x.owner } : x)),
+          }
+          // status e dono na mesma chamada: uma linha de log só
+          const what = [gone ? 'apagada' : status && status !== t.status ? status : '', owner && owner !== t.owner ? '→ ' + owner : '']
+            .filter(Boolean)
+            .join(' ')
+          if (what) nb = say(nb, who, `${t.subject}: ${what}`, at)
         }
-        if (t && i.status && i.status !== t.status) nb = say(nb, who, `${t.subject}: ${i.status}`, at)
-        if (t && i.owner && i.owner !== t.owner) nb = say(nb, who, `${t.subject} → ${i.owner}`, at)
       } else if (e.tool === 'TodoWrite' && !e.agentId) {
-        const todos = e.todos ?? []
-        nb = { ...nb, tasks: todos.map((t, i) => ({ id: 'todo-' + i, subject: t.content, status: t.status, owner: '' })) }
+        // troca só as tarefas do TodoWrite: as do TaskCreate ficam
+        const todos = (e.todos ?? []).flatMap(t => {
+          const status = taskStatus(t.status)
+          return typeof t.content === 'string' && status ? [{ subject: t.content, status }] : []
+        })
+        nb = { ...nb, tasks: [...nb.tasks.filter(x => !x.id.startsWith('todo-')), ...todos.map((t, i) => ({ id: 'todo-' + i, ...t, owner: '' }))] }
       } else if (!e.agentId && e.tool !== 'Agent') {
         nb = say(nb, who, e.tool, at) // Agent já loga "delega" no agent.spawn
       }
@@ -193,7 +218,7 @@ export const registerTime = (on: Parameters<Register>[0]) => {
       await update($, board, b => {
         // SendMessage a um colega já terminado: mesmo id, mesmo card; só volta a rodar
         if (e.resume && b.mates.some(m => m.id === id)) return withPeak(say(setStatus(b, id, 'running'), 'líder', `retoma → ${mateName(b, id)}`, at))
-        const mate: Mate = { id, name, role: e.subagentType.replace(/^tailor-ia-lean:/, ''), desc: e.description, model: r.model, status: 'running', tools: 0, lastTool: '' }
+        const mate: Mate = { id, name, role: e.subagentType.replace(/^tailor-ia-lean:/, ''), desc: e.description, model: r.model, status: 'running', tools: 0, lastTool: '', tokens: 0 }
         return withPeak(say({ ...b, mates: [...b.mates.filter(m => m.id !== id), mate].slice(-6) }, 'líder', `delega → ${name} (${modelLabel(r.model)})`, at))
       })
       await footer($)
@@ -232,7 +257,7 @@ export const registerTime = (on: Parameters<Register>[0]) => {
             {/* checkpoints e contadores dentro da caixa do líder: a coluna fixa de 26 roubava largura dos colegas */}
             <Box flexDirection="column" borderStyle="round" borderColor={LEAD} paddingX={1}>
               <Text wrap="truncate-end">
-                <Text color={LEAD} bold>líder</Text> · {b.leadBusy ? 'planeja + coordena' : 'aguardando'}
+                <Text color={LEAD} bold>líder</Text> · {b.leadBusy ? 'planeja + coordena' : 'aguardando'} · {k(b.leadTokens)} tokens
                 <Text dimColor>  │  </Text>time <Text bold>{b.mates.length}</Text> · rodando <Text bold>{b.mates.filter(isRunning).length}</Text> · pico <Text bold color={MATE}>{b.peak ?? 0}</Text>
               </Text>
               <Text wrap="truncate-end">
@@ -275,6 +300,7 @@ export const registerTime = (on: Parameters<Register>[0]) => {
                     ) : (
                       <Text dimColor>{m.tools} ferramentas</Text>
                     )}
+                    <Text color={MATE}>{k(m.tokens)} tokens</Text>
                     <Text dimColor wrap="truncate-end">{m.lastTool ? 'última: ' + m.lastTool : m.desc}</Text>
                     <Text color={color}>{isRunning(m) ? '○ rodando' : m.status}</Text>
                   </Box>

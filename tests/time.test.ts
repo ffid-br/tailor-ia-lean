@@ -1,10 +1,10 @@
 import { expect, test } from 'claude-code/testing'
 
-import { bar, modelLabel, phaseOf, withPeak } from '../hooks/time'
-import type { Board, Mate } from '../types'
+import { bar, k, modelLabel, phaseOf, taskStatus, teamTokens, withPeak } from '../hooks/time'
+import type { Board, Mate, MateStatus } from '../types'
 
-const mate = (status: string): Mate => ({ id: 'a', name: 'front', role: 'operario', desc: '', model: 'claude-sonnet-5-5', status, tools: 0, lastTool: '' })
-const board = (mates: Mate[], leadBusy: boolean): Board => ({ mates, tasks: [], log: [], leadBusy, leadModel: '', startedAt: 0, peak: 0 })
+const mate = (status: MateStatus): Mate => ({ id: 'a', name: 'front', role: 'operario', desc: '', model: 'claude-sonnet-5-5', status, tools: 0, lastTool: '', tokens: 0 })
+const board = (mates: Mate[], leadBusy: boolean): Board => ({ mates, tasks: [], log: [], leadBusy, leadModel: '', startedAt: 0, peak: 0, leadTokens: 0 })
 
 test('nome do modelo, barra e fase do líder', async () => {
   expect(modelLabel('claude-sonnet-5-5')).toBe('Sonnet 5.5')
@@ -20,7 +20,15 @@ test('nome do modelo, barra e fase do líder', async () => {
 })
 
 test('pico em paralelo sobe com os colegas rodando e não cai quando entregam', async () => {
-  const cinco = withPeak(board(['running', 'running', 'running', 'running', 'pending'].map(mate), true))
+  const cinco = withPeak(board((['running', 'running', 'running', 'running', 'pending'] as const).map(mate), true))
   expect(cinco.peak).toBe(5)
   expect(withPeak({ ...cinco, mates: cinco.mates.map(m => ({ ...m, status: 'completed' })) }).peak).toBe(5)
+})
+
+test('status de tarefa desconhecido é recusado e tokens somam líder + colegas', async () => {
+  expect(taskStatus('completed')).toBe('completed')
+  expect(taskStatus('deleted')).toBe(undefined)
+  expect(taskStatus(42)).toBe(undefined)
+  expect(k(1234)).toBe('1.2k')
+  expect(teamTokens({ ...board([{ ...mate('completed'), tokens: 500 }], false), leadTokens: 1000 })).toBe(1500)
 })

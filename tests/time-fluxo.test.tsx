@@ -11,7 +11,8 @@ const spawn = {
   tool_use_id: 'tu1', prompt: 'achar login', description: 'achar login', subagentType: 'tailor-ia-lean:batedor',
   provider: { plugin: 'engine', tier: 'core' }, parentModel: 'claude-opus-5-5', background: true, fork: false,
 } as const
-const turnDone = (agentId: string) => ({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 't-' + agentId, reason: 'answer' as const, agentId })
+const turnDone = (agentId: string) => ({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 't-' + agentId, reason: 'answer' as const, agentId, usage })
+const usage = { input_tokens: 1000, output_tokens: 200, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, model: 'claude-haiku-5-5' }
 
 test('colega termina no turn.complete dele e SendMessage retoma sem duplicar', async ($, on) => {
   mock.clock(on, { now: 1_000_000 })
@@ -30,7 +31,8 @@ test('colega termina no turn.complete dele e SendMessage retoma sem duplicar', a
   await $.turn.complete(turnDone('ag1'))
   ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await ui.find({ type: 'Text', text: /rodando/ }))?.text).toMatch(/rodando 0 · pico 1$/)
-  expect(await ui.find({ type: 'Text', text: /entregou/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /entregou · 1.2k tokens/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: '1.2k tokens' })).toBeTruthy()
   await ui.unmount()
 
   await $.agent.spawn({ ...spawn, resume: { agentId: 'ag1' } })
@@ -55,8 +57,25 @@ test('líder ocupado e logado enquanto roda ferramenta, ocioso no fim do turno',
   expect(await ui.find({ type: 'Text', text: /Bash/ })).toBeTruthy()
   await ui.unmount()
 
-  await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' as const })
+  await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' as const, usage })
   ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: 'aguardando' })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /aguardando · 1.2k tokens/ })).toBeTruthy()
+  await ui.unmount()
+})
+
+test('TodoWrite não apaga tarefa do TaskCreate e TaskUpdate com status e dono loga uma linha', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
+  on('command.register', () => ({ value: { command: 'lean-time' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('tool.call', (_, e) => ({ result: e.tool === 'TaskCreate' ? { task: { id: '1', subject: 'achar login' } } : {} }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'TaskCreate', subject: 'achar login', description: '' })
+  await $.tool.call({ tool: 'TodoWrite', todos: [{ content: 'revisar', status: 'pending', activeForm: 'revisando' }] })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'in_progress', owner: 'batedor' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /0\/2 feitas/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /achar login: in_progress → batedor/ })).toBeTruthy()
   await ui.unmount()
 })

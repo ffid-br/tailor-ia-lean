@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { Delegacao, Totais } from '../types'
-import { registerTime, timeStart, timeToolCall, timeTurnDone } from './time'
+import { k, registerTime, timeStart, timeToolCall, timeTurnDone } from './time'
 
 // Painel ao vivo do modo enxuto: quem está fazendo o trabalho (principal ou
 // batedor/operario/revisor), em que modelo, e quanto contexto foi relido.
@@ -28,8 +28,6 @@ const agora = atom({ plugin: 'tailor-ia-lean', key: 'agora' } as const, 0, { sha
 // Agente de outra sessão ou que perdeu o fim (reload do plugin) não fica "rodando" para sempre.
 const VENCE_MS = 60 * 60_000
 
-const k = (n = 0) =>
-  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : String(n)
 const seg = (ms = 0) => (ms >= 60_000 ? `${Math.round(ms / 60_000)}min` : `${Math.round(ms / 1000)}s`)
 const curto = (m?: string) => (m ? m.replace(/^claude-/, '').replace(/-\d{8}$/, '') : '?')
 const tipoCurto = (t: string) => t.replace(/^tailor-ia-lean:/, '')
@@ -118,9 +116,9 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     const u = e.usage
+    const tok = u ? u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens + u.output_tokens : undefined
     if (e.agentId) {
       // Fim de agente lançado em segundo plano: o tool.call já voltou, o custo chega aqui.
-      const tok = u ? u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens + u.output_tokens : undefined
       await seguro(
         update($, delegacoes, l =>
           l.map(x =>
@@ -140,7 +138,7 @@ export const register: Register = on => {
         modelo: u.model,
       })))
     }
-    await seguro(timeTurnDone($, e.agentId))
+    await seguro(timeTurnDone($, e.agentId, tok))
     return next(e)
   })
 

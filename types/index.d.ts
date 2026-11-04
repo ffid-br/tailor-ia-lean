@@ -6,8 +6,10 @@ export type Delegacao = {
   status: 'rodando' | 'feito' | 'erro' | 'fundo'
   tokens?: number
   ferramentas?: number
+  /** Duração em ms. */
   ms?: number
   agentId?: string
+  /** Epoch em ms, de $.clock.now(). */
   inicio?: number
   rodada?: number
   pai?: string
@@ -23,17 +25,24 @@ export type Totais = {
   ferramentasAgentes: number
 }
 
+/** Os estados do AgentStatus do engine, que o roster de $.agent.list() devolve. */
+export type MateStatus = 'pending' | 'running' | 'waiting' | 'idle' | 'completed' | 'failed' | 'killed'
 export type Mate = {
   id: string
   name: string
   role: string
   desc: string
   model: string
-  status: string
+  status: MateStatus
   tools: number
   lastTool: string
+  /** Tokens dos turnos do colega somados (entrada + cache lido + cache escrito + saída). */
+  tokens: number
 }
-export type Task = { id: string; subject: string; status: string; owner: string }
+export type TaskStatus = 'pending' | 'in_progress' | 'completed'
+/** `owner`: nome ou id do colega; '' quando a tarefa não tem dono. */
+export type Task = { id: string; subject: string; status: TaskStatus; owner: string }
+/** `at`: epoch em ms, de $.clock.now(). */
 export type LogLine = { at: number; who: string; text: string }
 export type Board = {
   mates: Mate[]
@@ -41,7 +50,10 @@ export type Board = {
   log: LogLine[]
   leadBusy: boolean
   leadModel: string
+  /** Epoch em ms do session.start. */
   startedAt: number
+  /** Tokens dos turnos do líder somados, mesma conta do Mate.tokens. */
+  leadTokens: number
   /** Maior número de colegas rodando ao mesmo tempo na sessão. */
   peak: number
 }
