@@ -42,6 +42,8 @@ export type Board = {
   leadBusy: boolean
   leadModel: string
   startedAt: number
+  /** Maior número de colegas rodando ao mesmo tempo na sessão. */
+  peak: number
 }
 
 declare module 'claude-code' {

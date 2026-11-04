@@ -12,12 +12,14 @@ const MATE = '#7aa2f7' // azul: colegas
 const TASK = '#9ece6a' // verde: tarefas
 const REVIEW = '#bb9af7' // roxo: revisão
 
-const EMPTY: Board = { mates: [], tasks: [], log: [], leadBusy: false, leadModel: '', startedAt: 0 }
+const EMPTY: Board = { mates: [], tasks: [], log: [], leadBusy: false, leadModel: '', startedAt: 0, peak: 0 }
 // Troque a tag quando os campos mudarem: ela recusa o que uma versão antiga gravou.
-const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-1' })
+const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-2' })
 
 const RUNNING = ['pending', 'running']
 const isRunning = (m: Mate) => RUNNING.includes(m.status)
+/** Guarda o pico de colegas rodando juntos: o "rodando" do momento zera quando todos entregam. */
+export const withPeak = (b: Board): Board => ({ ...b, peak: Math.max(b.peak, b.mates.filter(isRunning).length) })
 const isStuck = (m: Mate) => m.status === 'waiting' || m.status === 'failed'
 
 /** "claude-sonnet-5-5" → "Sonnet 5.5"; o que não casa volta como veio. */
@@ -168,8 +170,10 @@ export async function timeToolCall($: EngineInterface, e: ToolCallInput, ran: To
 }
 
 export const registerTime = (on: Parameters<Register>[0]) => {
-  on('command.run', { command: 'lean-time' }, async $ => {
-    const { isPlaced } = await $.ui.open({ id: PANE, title: 'Time de agentes' })
+  on('command.run', { command: 'lean-time' }, async ($, e) => {
+    // `/lean-time 30`: altura pedida no modo inline (acima do prompt); no dock lateral o engine ignora
+    const rows = Number.parseInt(e.args ?? '', 10)
+    const { isPlaced } = await $.ui.open({ id: PANE, title: 'Time de agentes', ...(rows > 0 ? { rows } : {}) })
     return { text: isPlaced ? 'Painel do time aberto.' : 'Painel pedido; aparece quando o terminal tiver largura.' }
   })
 
@@ -188,9 +192,9 @@ export const registerTime = (on: Parameters<Register>[0]) => {
       const at = await $.clock.now()
       await update($, board, b => {
         // SendMessage a um colega já terminado: mesmo id, mesmo card; só volta a rodar
-        if (e.resume && b.mates.some(m => m.id === id)) return say(setStatus(b, id, 'running'), 'líder', `retoma → ${mateName(b, id)}`, at)
+        if (e.resume && b.mates.some(m => m.id === id)) return withPeak(say(setStatus(b, id, 'running'), 'líder', `retoma → ${mateName(b, id)}`, at))
         const mate: Mate = { id, name, role: e.subagentType.replace(/^tailor-ia-lean:/, ''), desc: e.description, model: r.model, status: 'running', tools: 0, lastTool: '' }
-        return say({ ...b, mates: [...b.mates.filter(m => m.id !== id), mate].slice(-6) }, 'líder', `delega → ${name} (${modelLabel(r.model)})`, at)
+        return withPeak(say({ ...b, mates: [...b.mates.filter(m => m.id !== id), mate].slice(-6) }, 'líder', `delega → ${name} (${modelLabel(r.model)})`, at))
       })
       await footer($)
     } catch (err) { void err }
@@ -233,6 +237,7 @@ export const registerTime = (on: Parameters<Register>[0]) => {
             {check('antes de concluir', phase === 'review')}
             <Text> </Text>
             <Text>time <Text bold>{b.mates.length}</Text> · rodando <Text bold>{b.mates.filter(isRunning).length}</Text></Text>
+            <Text>pico em paralelo <Text bold color={MATE}>{b.peak ?? 0}</Text></Text>
           </Box>
 
           <Box flexDirection="column" flexGrow={1}>
@@ -257,9 +262,11 @@ export const registerTime = (on: Parameters<Register>[0]) => {
               ))}
             </Box>
 
+            {b.mates.length === 0 && <Text dimColor>  nenhum colega ainda: delegue com Agent</Text>}
+            {/* linhas de 3: os 6 colegas guardados aparecem todos, com largura para o nome */}
+            {[0, 3].filter(i => i < b.mates.length).map(i => (
             <Box flexDirection="row">
-              {b.mates.length === 0 && <Text dimColor>  nenhum colega ainda: delegue com Agent</Text>}
-              {b.mates.slice(-4).map(m => {
+              {b.mates.slice(i, i + 3).map(m => {
                 const mine = ownedBy(b, m)
                 const fin = mine.filter(t => t.status === 'completed').length
                 const color = isStuck(m) ? 'error' : isRunning(m) ? MATE : 'inactive'
@@ -280,6 +287,7 @@ export const registerTime = (on: Parameters<Register>[0]) => {
                 )
               })}
             </Box>
+            ))}
 
             <Box borderStyle="round" borderColor={phase === 'review' ? REVIEW : 'inactive'} paddingX={1} alignItems="center" flexDirection="column">
               <Text color={phase === 'review' ? REVIEW : undefined} bold={phase === 'review'}>
@@ -295,7 +303,7 @@ export const registerTime = (on: Parameters<Register>[0]) => {
           {b.log.slice(-logRoom).map(l => (
             <Text wrap="truncate-end">
               <Text dimColor>{clock(l.at, b.startedAt || l.at)}</Text>{'  '}
-              <Text color={l.who === 'líder' ? LEAD : MATE}>{l.who.padEnd(12).slice(0, 12)}</Text>{'  '}
+              <Text color={l.who === 'líder' ? LEAD : MATE}>{l.who.padEnd(12)}</Text>{'  '}
               {l.text}
             </Text>
           ))}

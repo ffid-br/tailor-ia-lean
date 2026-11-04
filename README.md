@@ -78,6 +78,9 @@ estado, e o log da sessão com delegações e mensagens entre colegas. A barra d
 `sonnet [running]  colegas [2/3]  líder [liderando]  tarefas [10/18]`. A barra de um colega só
 mostra fração quando ele é dono de tarefas; sem isso, mostra quantas ferramentas usou. Com
 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, as tarefas e mensagens do time entram sozinhas.
+O painel mostra os 6 últimos colegas em linhas de 3 e o pico de colegas rodando em paralelo na
+sessão. `/lean-time 30` pede 30 linhas de altura quando o painel abre acima do prompt (modo sem
+fullscreen, `CLAUDE_CODE_NO_FLICKER=0`); no fullscreen o engine sempre o encaixa na lateral.
 Precisa de Claude Code com hooks module; em versão antiga ou no Codex não aparece.
 
 ## Memória: guardar, compactar, limpar
