@@ -132,7 +132,8 @@ export async function timeToolCall($: EngineInterface, e: ToolCallInput, ran: To
     const who = await read($, board).then(b => mateName(b, e.agentId))
     const at = await $.clock.now()
     await update($, board, b => {
-      let nb = b
+      // turn.start do líder não chega a este módulo: tool.call do principal também marca o líder ocupado
+      let nb = e.agentId ? b : { ...b, leadBusy: true }
       if (e.agentId) {
         nb = { ...nb, mates: nb.mates.map(m => (m.id === e.agentId ? { ...m, tools: m.tools + 1, lastTool: e.tool } : m)) }
       }
@@ -157,6 +158,8 @@ export async function timeToolCall($: EngineInterface, e: ToolCallInput, ran: To
       } else if (e.tool === 'TodoWrite' && !e.agentId) {
         const todos = e.todos ?? []
         nb = { ...nb, tasks: todos.map((t, i) => ({ id: 'todo-' + i, subject: t.content, status: t.status, owner: '' })) }
+      } else if (!e.agentId && e.tool !== 'Agent') {
+        nb = say(nb, who, e.tool, at) // Agent já loga "delega" no agent.spawn
       }
       return nb
     })

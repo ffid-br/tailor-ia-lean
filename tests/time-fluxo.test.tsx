@@ -39,3 +39,24 @@ test('colega termina no turn.complete dele e SendMessage retoma sem duplicar', a
   expect(await ui.find({ type: 'Text', text: /retoma/ })).toBeTruthy()
   await ui.unmount()
 })
+
+test('líder ocupado e logado enquanto roda ferramenta, ocioso no fim do turno', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
+  on('command.register', () => ({ value: { command: 'lean-time' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('tool.call', () => ({ result: { stdout: '' } }))
+  on('turn.complete', (_, e) => ({ text: e.answer }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: 'planeja + coordena' })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /Bash/ })).toBeTruthy()
+  await ui.unmount()
+
+  await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' as const })
+  ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: 'aguardando' })).toBeTruthy()
+  await ui.unmount()
+})
