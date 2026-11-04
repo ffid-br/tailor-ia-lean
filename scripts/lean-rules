@@ -15,14 +15,9 @@ else
 - Tem a resposta? Pare. Não confirme com leitura extra; cada turno a mais relê o contexto inteiro.'
 fi
 
-# Caveman ligado já injeta "resposta curta, sem narrar, sem repetir": não duplicar.
-# Ligado = habilitado no settings do usuário e flag de modo diferente de off.
-# ponytail: só olha ~/.claude/settings.json; habilitação por projeto não conta.
+# Não lê ~/.claude (settings ou flag do caveman): o diretório da Anthropic trata como credencial.
+# Com o caveman ligado, esta linha repete a regra de estilo dele; custa uma linha.
 CURTA='- Resposta curta, direta, sem narrar tool calls nem repetir o que o usuário já sabe. Código antes de prosa.'
-if [ "$P" = / ] && grep -q '"caveman@caveman": *true' "$HOME/.claude/settings.json" 2>/dev/null \
-  && [ -s "$HOME/.claude/.caveman-active" ] && [ "$(cat "$HOME/.claude/.caveman-active")" != off ]; then
-  CURTA='- Código antes de prosa (estilo de resposta: regras do caveman, já ativas).'
-fi
 
 cat <<TXT
 # Tailor.ia Lean — ativo nesta sessão

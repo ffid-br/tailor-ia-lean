@@ -9,7 +9,8 @@ do portal devolveu 4 policy holds e 1 aviso antes de aceitar.
 - `author.name: "Tailor"` colidiu com o conector `tailor` já listado e com `teamtailor`.
   Virou `FFID`. Só o dono do nome publica sob ele.
 - Hook que lia `~/.claude/settings.json` (para avisar se caveman/ponytail faltavam) foi
-  marcado como "uses a credential from the user's machine". Removido.
+  marcado como "uses a credential from the user's machine". Removido. Voltou na 0.5.2 (checagem do
+  caveman em `lean-rules`) e travou toda versão até a 0.7.8; tirado de novo na 0.8.0. Não ler nada em `~/.claude`.
 - Ícone `.claude-plugin/icon.png` (512 a 2048 px, PNG) vira o ícone da listagem só na
   primeira gravação; trocar depois não muda.
 - `documentationUrl` e `supportUrl` são pedidos na tela de Detalhes mas o validador avisa

@@ -88,6 +88,20 @@ sessão. `/lean-time 30` pede 30 linhas de altura quando o painel abre acima do 
 fullscreen, `CLAUDE_CODE_NO_FLICKER=0`); no fullscreen o engine sempre o encaixa na lateral.
 Precisa de Claude Code com hooks module; em versão antiga ou no Codex não aparece.
 
+### O que os hooks do painel fazem
+
+Os dois painéis moram em `hooks/painel.tsx`. Os hooks só observam e desenham; nenhum muda,
+bloqueia ou reescreve o que passa por eles.
+
+- `tool.call`: depois que a ferramenta roda, conta a chamada (principal ou agente) e, no `Agent`,
+  guarda modelo, tokens e duração. Não altera entrada nem resultado.
+- `agent.spawn`: registra o colega novo (papel, modelo) depois que o engine o lança.
+- `prompt.submit`: quando é o usuário digitando, marca rodada nova no `/lean-time`. Não muda o
+  texto, o contexto nem a origem do prompt.
+- `turn.start` / `turn.complete`: marcam líder e colegas ocupados ou livres e somam o `usage` do turno.
+- `session.start` / `session.end`: registram `/lean-painel` e `/lean-time` e param o relógio.
+- `ui.render`: desenha os dois painéis.
+
 ## Memória: guardar, compactar, limpar
 
 `/fechar` ao fim da sessão: grava em `docs/memoria/AAAA-MM-DD-slug.md` o que não está no código

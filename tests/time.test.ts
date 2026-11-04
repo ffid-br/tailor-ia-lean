@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { bar, k, modelLabel, phaseOf, taskStatus, withPeak } from '../hooks/time'
+import { bar, k, modelLabel, phaseOf, taskStatus, withPeak } from '../hooks/painel'
 import type { Board, Mate, MateStatus } from '../types'
 
 const mate = (status: MateStatus): Mate => ({ id: 'a', name: 'front', role: 'operario', desc: '', model: 'claude-sonnet-5-5', status, tools: 0, lastTool: '', tokens: 0 })
