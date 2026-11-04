@@ -26,12 +26,16 @@ test('colega termina no turn.complete dele e SendMessage retoma sem duplicar', a
   await $.agent.spawn(spawn)
   let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await ui.find({ type: 'Text', text: /rodando/ }))?.text).toMatch(/rodando 1 · pico 1$/)
+  expect(await ui.find({ type: 'Text', text: /tarefas \(delegações\) · 0\/1 feitas/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /0\/1 entregues/ })).toBeTruthy()
   await ui.unmount()
 
   await $.turn.complete(turnDone('ag1'))
   ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await ui.find({ type: 'Text', text: /rodando/ }))?.text).toMatch(/rodando 0 · pico 1$/)
   expect(await ui.find({ type: 'Text', text: /entregou · 1.2k tokens/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /1\/1 feitas/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /1\/1 entregues/ })).toBeTruthy()
   expect(await ui.find({ type: 'Text', text: '1.2k tokens' })).toBeTruthy()
   await ui.unmount()
 
@@ -103,4 +107,30 @@ test('colega em primeiro plano soma tokens no turn.complete e o total guarda que
   await ui.unmount()
   // 7 colegas + 1 turno do líder, 1.200 cada: o 1º colega saiu da caixa, não da soma
   expect(bar).toMatch(/tokens \[9.6k\]$/)
+})
+
+test('prompt novo: a próxima delegação tira quem já entregou e mantém o total de tokens', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
+  on('command.register', () => ({ value: { command: 'lean-time' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  let n = 0
+  on('agent.spawn', () => ({ model: 'claude-haiku-5-5', agentId: 'ag' + ++n }))
+  on('turn.complete', (_, e) => ({ text: e.answer }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.agent.spawn(spawn)
+  await $.agent.spawn(spawn)
+  await $.turn.complete(turnDone('ag1'))
+  // aviso de subagente não conta como prompt novo
+  await $.prompt.submit({ text: 'ag1 terminou', wait: false, origin: { kind: 'task-notification' } })
+  await $.agent.spawn(spawn)
+  await $.prompt.submit({ text: 'nova lista', wait: false, origin: { kind: 'composer' } })
+  await $.agent.spawn(spawn)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  // ag1 entregou e sai; ag2 e ag3 ainda rodam e ficam; ag4 entra
+  expect((await ui.find({ type: 'Text', text: /rodando/ }))?.text).toMatch(/time 3 · rodando 3 · pico 3$/)
+  expect(await ui.find({ type: 'Text', text: /nova rodada \(1 colegas saem\)/ })).toBeTruthy()
+  await ui.unmount()
 })

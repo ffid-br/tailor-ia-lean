@@ -4,7 +4,7 @@ import { bar, k, modelLabel, phaseOf, taskStatus, withPeak } from '../hooks/time
 import type { Board, Mate, MateStatus } from '../types'
 
 const mate = (status: MateStatus): Mate => ({ id: 'a', name: 'front', role: 'operario', desc: '', model: 'claude-sonnet-5-5', status, tools: 0, lastTool: '', tokens: 0 })
-const board = (mates: Mate[], leadBusy: boolean): Board => ({ mates, tasks: [], log: [], leadBusy, leadModel: '', startedAt: 0, peak: 0, leadTokens: 0, tokens: 0 })
+const board = (mates: Mate[], leadBusy: boolean): Board => ({ mates, tasks: [], log: [], leadBusy, leadModel: '', startedAt: 0, peak: 0, leadTokens: 0, tokens: 0, fresh: false })
 
 test('nome do modelo, barra e fase do líder', async () => {
   expect(modelLabel('claude-sonnet-5-5')).toBe('Sonnet 5.5')

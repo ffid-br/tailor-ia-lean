@@ -56,6 +56,8 @@ export type Board = {
   leadTokens: number
   /** Tokens da sessão toda (líder + todo colega, inclusive os que saíram dos 6 guardados). */
   tokens: number
+  /** Prompt novo do usuário: a próxima delegação começa rodada nova e tira os colegas que já entregaram. */
+  fresh: boolean
   /** Maior número de colegas rodando ao mesmo tempo na sessão. */
   peak: number
 }

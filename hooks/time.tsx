@@ -12,10 +12,11 @@ const MATE = '#7aa2f7' // azul: colegas
 const TASK = '#9ece6a' // verde: tarefas
 const REVIEW = '#bb9af7' // roxo: revisão
 
-const EMPTY: Board = { mates: [], tasks: [], log: [], leadBusy: false, leadModel: '', startedAt: 0, peak: 0, leadTokens: 0, tokens: 0 }
+const EMPTY: Board = { mates: [], tasks: [], log: [], leadBusy: false, leadModel: '', startedAt: 0, peak: 0, leadTokens: 0, tokens: 0, fresh: false }
 // Troque a tag quando os campos mudarem: ela recusa o que uma versão antiga gravou.
-const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-4' })
+const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-5' })
 
+const USER_ORIGINS = ['composer', 'bridge']
 const RUNNING: MateStatus[] = ['pending', 'running']
 const isRunning = (m: Mate) => RUNNING.includes(m.status)
 /** Guarda o pico de colegas rodando juntos: o "rodando" do momento zera quando todos entregam. */
@@ -73,16 +74,23 @@ const mateName = (b: Board, agentId?: string) => {
   return m ? m.name : agentId ? 'subagente' : 'líder'
 }
 
+/** Sem TaskCreate/TodoWrite na sessão, cada delegação vira uma tarefa: rodando = em andamento, entregue = feita. */
+export const tasksOf = (b: Board): Task[] =>
+  b.tasks.length
+    ? b.tasks
+    : b.mates.map(m => ({ id: m.id, subject: m.desc || m.name, owner: m.name, status: isRunning(m) ? 'in_progress' : m.status === 'completed' ? 'completed' : 'pending' }))
+
 const ownedBy = (b: Board, m: Mate): Task[] => b.tasks.filter(t => t.owner && (t.owner === m.name || t.owner === m.id))
 
 async function footer($: EngineInterface) {
   const b = await read($, board)
   if (!b.mates.length && !b.tasks.length) return $.ui.status(undefined)
+  const tasks = tasksOf(b)
   const run = b.mates.filter(isRunning).length
-  const done = b.tasks.filter(t => t.status === 'completed').length
+  const done = tasks.filter(t => t.status === 'completed').length
   const phase = { idle: 'parado', plan: 'planejando', lead: 'liderando', blocked: 'destravando', review: 'revisando' }[phaseOf(b)]
   const models = [...new Set(b.mates.map(m => (modelLabel(m.model).split(' ')[0] ?? '').toLowerCase()))].join('+') || 'time'
-  $.ui.status(`${models} [${run ? 'running' : 'idle'}]  colegas [${run}/${b.mates.length}]  líder [${phase}]  tarefas [${done}/${b.tasks.length}]  tokens [${k(b.tokens)}]`)
+  $.ui.status(`${models} [${run ? 'running' : 'idle'}]  colegas [${run}/${b.mates.length}]  líder [${phase}]  tarefas [${done}/${tasks.length}]  tokens [${k(b.tokens)}]`)
 }
 
 
@@ -200,6 +208,13 @@ export const registerTime = (on: Parameters<Register>[0]) => {
     return { text: isPlaced ? 'Painel do time aberto.' : 'Painel pedido; aparece quando o terminal tiver largura.' }
   })
 
+  // só o usuário digitando (composer, ou bridge do celular/web) marca rodada nova; aviso de
+  // subagente também chega aqui (task-notification, peer) e não pode limpar o time
+  on('prompt.submit', async ($, e, next) => {
+    if (!e.command && !e.isMeta && USER_ORIGINS.includes(e.origin.kind)) await update($, board, b => ({ ...b, fresh: true })).catch(() => undefined)
+    return next(e)
+  })
+
   on('turn.start', async ($, e, next) => {
     const id = e.agentId
     await update($, board, b => (id ? setStatus(b, id, 'running') : { ...b, leadBusy: true }))
@@ -216,8 +231,12 @@ export const registerTime = (on: Parameters<Register>[0]) => {
       await update($, board, b => {
         // SendMessage a um colega já terminado: mesmo id, mesmo card; só volta a rodar
         if (e.resume && b.mates.some(m => m.id === id)) return withPeak(say(setStatus(b, id, 'running'), 'líder', `retoma → ${mateName(b, id)}`, at))
+        // rodada nova: sai quem já entregou; quem ainda roda fica
+        const keep = b.fresh ? b.mates.filter(isRunning) : b.mates
+        const cleared = b.mates.length - keep.length
+        const nb0 = cleared ? say({ ...b, mates: keep }, 'líder', `nova rodada (${cleared} colegas saem)`, at) : b
         const mate: Mate = { id, name, role: e.subagentType.replace(/^tailor-ia-lean:/, ''), desc: e.description, model: r.model, status: 'running', tools: 0, lastTool: '', tokens: 0 }
-        return withPeak(say({ ...b, mates: [...b.mates.filter(m => m.id !== id), mate].slice(-6) }, 'líder', `delega → ${name} (${modelLabel(r.model)})`, at))
+        return withPeak(say({ ...nb0, fresh: false, mates: [...nb0.mates.filter(m => m.id !== id), mate].slice(-6) }, 'líder', `delega → ${name} (${modelLabel(r.model)})`, at))
       })
       await footer($)
     } catch (err) { void err }
@@ -229,7 +248,9 @@ export const registerTime = (on: Parameters<Register>[0]) => {
     const b = await read($, board)
     const cols = e.viewport?.columns ?? 100
     const phase = phaseOf(b)
-    const done = b.tasks.filter(t => t.status === 'completed').length
+    const tasks = tasksOf(b)
+    const done = tasks.filter(t => t.status === 'completed').length
+    const delivered = b.mates.filter(m => m.status === 'completed').length
     const models = [...new Set(b.mates.map(m => modelLabel(m.model)))]
     const W = Math.max(8, Math.min(16, Math.floor(cols / 10)))
     const rows = e.viewport?.rows ?? 40
@@ -265,10 +286,10 @@ export const registerTime = (on: Parameters<Register>[0]) => {
 
             <Box flexDirection="column" borderStyle="round" borderColor={TASK} paddingX={1}>
               <Text color={TASK} bold>
-                tarefas compartilhadas · {done}/{b.tasks.length} feitas
+                {b.tasks.length ? 'tarefas compartilhadas' : 'tarefas (delegações)'} · {done}/{tasks.length} feitas
               </Text>
-              {b.tasks.length === 0 && <Text dimColor>nenhuma tarefa ainda</Text>}
-              {b.tasks.slice(-6).map(t => (
+              {tasks.length === 0 && <Text dimColor>nenhuma tarefa ainda</Text>}
+              {tasks.slice(-6).map(t => (
                 <Text wrap="truncate-end">
                   <Text color={t.status === 'completed' ? TASK : t.status === 'in_progress' ? LEAD : undefined}>
                     {t.status === 'completed' ? '✔' : t.status === 'in_progress' ? '▶' : '·'}
@@ -309,7 +330,7 @@ export const registerTime = (on: Parameters<Register>[0]) => {
 
             <Box borderStyle="round" borderColor={phase === 'review' ? REVIEW : 'inactive'} paddingX={1} alignItems="center" flexDirection="column">
               <Text color={phase === 'review' ? REVIEW : undefined} bold={phase === 'review'}>
-                volta ao líder · revisar + verificar
+                volta ao líder · revisar + verificar{b.mates.length ? ` · ${delivered}/${b.mates.length} entregues` : ''}
               </Text>
             </Box>
           </Box>
