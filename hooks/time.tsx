@@ -228,22 +228,16 @@ export const registerTime = (on: Parameters<Register>[0]) => {
         </Text>
 
         <Box flexDirection="row">
-          <Box flexDirection="column" borderStyle="round" borderColor={REVIEW} paddingX={1} width={26}>
-            <Text color={LEAD} bold>LÍDER · checkpoints</Text>
-            {check('antes do plano', phase === 'plan')}
-            <Text dimColor>planeja, define contrato, coordena</Text>
-            {check('colega travado', phase === 'blocked')}
-            <Text dimColor>colegas falam direto entre si</Text>
-            {check('antes de concluir', phase === 'review')}
-            <Text> </Text>
-            <Text>time <Text bold>{b.mates.length}</Text> · rodando <Text bold>{b.mates.filter(isRunning).length}</Text></Text>
-            <Text>pico em paralelo <Text bold color={MATE}>{b.peak ?? 0}</Text></Text>
-          </Box>
-
           <Box flexDirection="column" flexGrow={1}>
-            <Box flexDirection="column" borderStyle="round" borderColor={LEAD} paddingX={1} alignItems="center">
-              <Text color={LEAD} bold>líder · sessão principal</Text>
-              <Text>{b.leadBusy ? 'planeja + coordena' : 'aguardando'}</Text>
+            {/* checkpoints e contadores dentro da caixa do líder: a coluna fixa de 26 roubava largura dos colegas */}
+            <Box flexDirection="column" borderStyle="round" borderColor={LEAD} paddingX={1}>
+              <Text wrap="truncate-end">
+                <Text color={LEAD} bold>líder</Text> · {b.leadBusy ? 'planeja + coordena' : 'aguardando'}
+                <Text dimColor>  │  </Text>time <Text bold>{b.mates.length}</Text> · rodando <Text bold>{b.mates.filter(isRunning).length}</Text> · pico <Text bold color={MATE}>{b.peak ?? 0}</Text>
+              </Text>
+              <Text wrap="truncate-end">
+                {check('plano', phase === 'plan')}  {check('colega travado', phase === 'blocked')}  {check('concluir', phase === 'review')}
+              </Text>
             </Box>
 
             <Box flexDirection="column" borderStyle="round" borderColor={TASK} paddingX={1}>
