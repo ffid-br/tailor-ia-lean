@@ -47,9 +47,15 @@ const clock = (at: number, start: number) => {
   return `${p(Math.floor(s / 3600))}:${p(Math.floor(s / 60) % 60)}:${p(s % 60)}`
 }
 
-const say = (b: Board, who: string, text: string): Board => ({
+// `at` vem de $.clock.now(): Date.now() no módulo do mod não anda (log ficava 00:00:00).
+const say = (b: Board, who: string, text: string, at: number): Board => ({
   ...b,
-  log: [...b.log, { at: Date.now(), who, text: text.replace(/\s+/g, ' ').slice(0, 90) }].slice(-40),
+  log: [...b.log, { at, who, text: text.replace(/\s+/g, ' ').slice(0, 90) }].slice(-40),
+})
+
+const setStatus = (b: Board, id: string, status: string): Board => ({
+  ...b,
+  mates: b.mates.map(m => (m.id === id ? { ...m, status } : m)),
 })
 
 const mateName = (b: Board, agentId?: string) => {
@@ -76,18 +82,21 @@ let stopPoll: (() => void) | undefined
 // session.start do painel chama isto (um hook sem matcher por evento no plugin).
 export async function timeStart($: EngineInterface) {
   await $.command.register({ name: 'lean-time', description: 'Abre o painel do time de agentes (líder, colegas por papel, tarefas, log)' })
-  await update($, board, b => (b.startedAt ? b : { ...b, startedAt: Date.now() }))
-  // status vem do roster do engine; nenhum evento avisa a troca, então lê a cada 1,5 s
+  const now = await $.clock.now()
+  await update($, board, b => (b.startedAt ? b : { ...b, startedAt: now }))
+  // travado/falhou só o roster do engine conta, então lê a cada 1,5 s;
+  // o fim e a retomada chegam por turn.complete / agent.spawn (o roster pode manter "running").
   stopPoll?.()
   const t = $.clock.every(1500, () => {
     void (async () => {
       const list = await $.agent.list()
+      const at = await $.clock.now()
       await update($, board, b => {
         let changed = false
         const mates = b.mates.map(m => {
           const live = list.find(a => a.id === m.id)
           const status = live ? live.status : isRunning(m) ? 'completed' : m.status
-          if (status === m.status) return m
+          if (status === m.status || (RUNNING.includes(status) && !isRunning(m))) return m
           changed = true
           return { ...m, status }
         })
@@ -95,7 +104,7 @@ export async function timeStart($: EngineInterface) {
         let nb: Board = { ...b, mates }
         for (const m of mates) {
           const old = b.mates.find(x => x.id === m.id)
-          if (old && old.status !== m.status) nb = say(nb, m.name, `${old.status} → ${m.status}`)
+          if (old && old.status !== m.status) nb = say(nb, m.name, `${old.status} → ${m.status}`, at)
         }
         return nb
       })
@@ -107,8 +116,13 @@ export async function timeStart($: EngineInterface) {
 
 // turn.complete do painel chama isto.
 export async function timeTurnDone($: EngineInterface, agentId?: string) {
-  if (agentId) return
-  await update($, board, b => ({ ...b, leadBusy: false }))
+  const at = await $.clock.now()
+  await update($, board, b => {
+    if (!agentId) return { ...b, leadBusy: false }
+    const m = b.mates.find(x => x.id === agentId)
+    // turno do subagente acabou (relatório entregue): fim, até uma mensagem retomá-lo
+    return m && isRunning(m) ? say(setStatus(b, agentId, 'completed'), m.name, 'entregou', at) : b
+  })
   await footer($)
 }
 
@@ -116,6 +130,7 @@ export async function timeTurnDone($: EngineInterface, agentId?: string) {
 export async function timeToolCall($: EngineInterface, e: ToolCallInput, ran: ToolCallResult) {
   try {
     const who = await read($, board).then(b => mateName(b, e.agentId))
+    const at = await $.clock.now()
     await update($, board, b => {
       let nb = b
       if (e.agentId) {
@@ -124,10 +139,10 @@ export async function timeToolCall($: EngineInterface, e: ToolCallInput, ran: To
       if (e.tool === 'SendMessage') {
         const i = { to: typeof e.to === 'string' ? e.to : undefined, summary: e.summary, message: e.message as unknown }
         const txt = i.summary || (typeof i.message === 'string' ? i.message : '')
-        nb = say(nb, who, `mensagem → ${i.to ?? '?'}: ${txt}`)
+        nb = say(nb, who, `mensagem → ${i.to ?? '?'}: ${txt}`, at)
       } else if (e.tool === 'TaskCreate' && 'result' in ran && ran.result) {
         const task = (ran.result as { task?: { id: string; subject: string } }).task
-        if (task) nb = say({ ...nb, tasks: [...nb.tasks, { id: task.id, subject: task.subject, status: 'pending', owner: '' }] }, who, `tarefa nova: ${task.subject}`)
+        if (task) nb = say({ ...nb, tasks: [...nb.tasks, { id: task.id, subject: task.subject, status: 'pending', owner: '' }] }, who, `tarefa nova: ${task.subject}`, at)
       } else if (e.tool === 'TaskUpdate') {
         const i = { taskId: e.taskId, status: e.status as string | undefined, owner: e.owner }
         const t = nb.tasks.find(x => x.id === i.taskId)
@@ -137,8 +152,8 @@ export async function timeToolCall($: EngineInterface, e: ToolCallInput, ran: To
             .map(x => (x.id === i.taskId ? { ...x, status: i.status ?? x.status, owner: i.owner ?? x.owner } : x))
             .filter(x => x.status !== 'deleted'),
         }
-        if (t && i.status && i.status !== t.status) nb = say(nb, who, `${t.subject}: ${i.status}`)
-        if (t && i.owner && i.owner !== t.owner) nb = say(nb, who, `${t.subject} → ${i.owner}`)
+        if (t && i.status && i.status !== t.status) nb = say(nb, who, `${t.subject}: ${i.status}`, at)
+        if (t && i.owner && i.owner !== t.owner) nb = say(nb, who, `${t.subject} → ${i.owner}`, at)
       } else if (e.tool === 'TodoWrite' && !e.agentId) {
         const todos = e.todos ?? []
         nb = { ...nb, tasks: todos.map((t, i) => ({ id: 'todo-' + i, subject: t.content, status: t.status, owner: '' })) }
@@ -156,7 +171,8 @@ export const registerTime = (on: Parameters<Register>[0]) => {
   })
 
   on('turn.start', async ($, e, next) => {
-    if (!e.agentId) await update($, board, b => ({ ...b, leadBusy: true }))
+    const id = e.agentId
+    await update($, board, b => (id ? setStatus(b, id, 'running') : { ...b, leadBusy: true }))
     return next(e)
   })
 
@@ -166,9 +182,12 @@ export const registerTime = (on: Parameters<Register>[0]) => {
     if (r.agentId) try {
       const id = r.agentId
       const name = (r.teammateId ?? '').split('@')[0] || e.description || e.subagentType
+      const at = await $.clock.now()
       await update($, board, b => {
+        // SendMessage a um colega já terminado: mesmo id, mesmo card; só volta a rodar
+        if (e.resume && b.mates.some(m => m.id === id)) return say(setStatus(b, id, 'running'), 'líder', `retoma → ${mateName(b, id)}`, at)
         const mate: Mate = { id, name, role: e.subagentType.replace(/^tailor-ia-lean:/, ''), desc: e.description, model: r.model, status: 'running', tools: 0, lastTool: '' }
-        return say({ ...b, mates: [...b.mates.filter(m => m.id !== id), mate].slice(-6) }, 'líder', `delega → ${name} (${modelLabel(r.model)})`)
+        return say({ ...b, mates: [...b.mates.filter(m => m.id !== id), mate].slice(-6) }, 'líder', `delega → ${name} (${modelLabel(r.model)})`, at)
       })
       await footer($)
     } catch (err) { void err }
