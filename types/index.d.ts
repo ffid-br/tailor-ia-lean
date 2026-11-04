@@ -54,6 +54,8 @@ export type Board = {
   startedAt: number
   /** Tokens dos turnos do líder somados, mesma conta do Mate.tokens. */
   leadTokens: number
+  /** Tokens da sessão toda (líder + todo colega, inclusive os que saíram dos 6 guardados). */
+  tokens: number
   /** Maior número de colegas rodando ao mesmo tempo na sessão. */
   peak: number
 }

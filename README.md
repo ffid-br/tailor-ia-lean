@@ -76,7 +76,8 @@ largura, `/lean-painel`. Não entra no contexto do modelo. No Codex o painel nã
 `feitas/total`, uma caixa por colega com papel (`batedor`, `operario`, `revisor`), modelo e
 estado, e o log da sessão com delegações e mensagens entre colegas. A barra de status resume:
 `sonnet [running]  colegas [2/3]  líder [liderando]  tarefas [10/18]  tokens [182k]`. Cada caixa
-mostra os tokens do colega, a do líder os dele, somados do `usage` de cada turno. A barra de um colega só
+mostra os tokens do colega, a do líder os dele, somados do `usage` de cada turno; a barra soma a
+sessão toda, inclusive colegas que já saíram dos 6 guardados. A barra de um colega só
 mostra fração quando ele é dono de tarefas; sem isso, mostra quantas ferramentas usou. Com
 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, as tarefas e mensagens do time entram sozinhas.
 O painel mostra os 6 últimos colegas em linhas de 3 e o pico de colegas rodando em paralelo na
@@ -124,3 +125,8 @@ ou repositório específico vai no `CLAUDE.md` daquele repositório, não aqui.
 ## Licença
 
 MIT.
+
+## Desenvolvimento
+
+`scripts/check` roda typecheck (`tsc` com os tipos do engine), `claude plugin test` e
+`claude plugin validate`. Rode antes de todo push.

@@ -79,3 +79,28 @@ test('TodoWrite não apaga tarefa do TaskCreate e TaskUpdate com status e dono l
   expect(await ui.find({ type: 'Text', text: /achar login: in_progress → batedor/ })).toBeTruthy()
   await ui.unmount()
 })
+
+test('colega em primeiro plano soma tokens no turn.complete e o total guarda quem saiu dos 6', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
+  on('command.register', () => ({ value: { command: 'lean-time' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  let n = 0
+  let bar = ''
+  on('ui.status', (_, e) => { bar = String((e as { text?: string }).text ?? ''); return { value: undefined } })
+  on('agent.spawn', () => ({ model: 'claude-haiku-5-5', agentId: 'ag' + ++n }))
+  on('turn.complete', (_, e) => ({ text: e.answer }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  for (let i = 1; i <= 7; i++) {
+    await $.agent.spawn({ ...spawn, background: false })
+    await $.turn.complete(turnDone('ag' + i))
+  }
+  await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 'lead', reason: 'answer' as const, usage })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /rodando/ }))?.text).toMatch(/time 6 · rodando 0/)
+  expect(await ui.find({ type: 'Text', text: /aguardando · 1.2k tokens/ })).toBeTruthy()
+  await ui.unmount()
+  // 7 colegas + 1 turno do líder, 1.200 cada: o 1º colega saiu da caixa, não da soma
+  expect(bar).toMatch(/tokens \[9.6k\]$/)
+})

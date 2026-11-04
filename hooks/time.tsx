@@ -12,9 +12,9 @@ const MATE = '#7aa2f7' // azul: colegas
 const TASK = '#9ece6a' // verde: tarefas
 const REVIEW = '#bb9af7' // roxo: revisão
 
-const EMPTY: Board = { mates: [], tasks: [], log: [], leadBusy: false, leadModel: '', startedAt: 0, peak: 0, leadTokens: 0 }
+const EMPTY: Board = { mates: [], tasks: [], log: [], leadBusy: false, leadModel: '', startedAt: 0, peak: 0, leadTokens: 0, tokens: 0 }
 // Troque a tag quando os campos mudarem: ela recusa o que uma versão antiga gravou.
-const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-3' })
+const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-4' })
 
 const RUNNING: MateStatus[] = ['pending', 'running']
 const isRunning = (m: Mate) => RUNNING.includes(m.status)
@@ -37,10 +37,6 @@ export const k = (n = 0) =>
 const TASK_STATUS: TaskStatus[] = ['pending', 'in_progress', 'completed']
 /** Só os status que o painel conhece; o resto (inclusive 'deleted') volta undefined. */
 export const taskStatus = (v: unknown): TaskStatus | undefined => (TASK_STATUS.includes(v as TaskStatus) ? (v as TaskStatus) : undefined)
-
-/** Tokens do líder mais os dos colegas guardados. */
-// shortcut: colegas além dos 6 guardados saem da soma, guardar um acumulado se precisar do total exato
-export const teamTokens = (b: Board) => b.leadTokens + b.mates.reduce((s, m) => s + (m.tokens ?? 0), 0)
 
 export const bar = (done: number, total: number, width: number): string => {
   const f = total > 0 ? Math.round((Math.min(done, total) / total) * width) : 0
@@ -86,7 +82,7 @@ async function footer($: EngineInterface) {
   const done = b.tasks.filter(t => t.status === 'completed').length
   const phase = { idle: 'parado', plan: 'planejando', lead: 'liderando', blocked: 'destravando', review: 'revisando' }[phaseOf(b)]
   const models = [...new Set(b.mates.map(m => (modelLabel(m.model).split(' ')[0] ?? '').toLowerCase()))].join('+') || 'time'
-  $.ui.status(`${models} [${run ? 'running' : 'idle'}]  colegas [${run}/${b.mates.length}]  líder [${phase}]  tarefas [${done}/${b.tasks.length}]  tokens [${k(teamTokens(b))}]`)
+  $.ui.status(`${models} [${run ? 'running' : 'idle'}]  colegas [${run}/${b.mates.length}]  líder [${phase}]  tarefas [${done}/${b.tasks.length}]  tokens [${k(b.tokens)}]`)
 }
 
 
@@ -132,11 +128,13 @@ export async function timeStart($: EngineInterface) {
 // `tokens`: o usage do turno (TurnUsage é por turno, então soma).
 export async function timeTurnDone($: EngineInterface, agentId?: string, tokens = 0) {
   const at = await $.clock.now()
-  await update($, board, b => {
-    if (!agentId) return { ...b, leadBusy: false, leadTokens: (b.leadTokens ?? 0) + tokens }
+  await update($, board, b0 => {
+    // o total soma todo turno, até de colega que já saiu dos 6 guardados
+    const b = { ...b0, tokens: b0.tokens + tokens }
+    if (!agentId) return { ...b, leadBusy: false, leadTokens: b.leadTokens + tokens }
     const m = b.mates.find(x => x.id === agentId)
     if (!m) return b
-    const nb = { ...b, mates: b.mates.map(x => (x.id === agentId ? { ...x, tokens: (x.tokens ?? 0) + tokens } : x)) }
+    const nb = { ...b, mates: b.mates.map(x => (x.id === agentId ? { ...x, tokens: x.tokens + tokens } : x)) }
     // turno do subagente acabou (relatório entregue): fim, até uma mensagem retomá-lo
     return isRunning(m) ? say(setStatus(nb, agentId, 'completed'), m.name, `entregou · ${k(tokens)} tokens`, at) : nb
   })
