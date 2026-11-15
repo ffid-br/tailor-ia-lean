@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "tailor-ia-lean",
-  "description": "Modo enxuto para Claude Code: gastar menos tokens e raciocinar melhor, destilado de prática real.",
+  "description": "Tailor.ia Lean: gaste menos tokens e erre menos no Claude Code. Tailor.ia é uma marca da FFID.",
   "owner": {
     "name": "Tailor",
     "url": "https://github.com/ffid-br"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "tailor-ia-lean",
-      "description": "Regras de economia de tokens e de qualidade de raciocínio no início de cada sessão, mais um fluxo de desenvolvimento enxuto (ticket, branch, PR, quality gates, memória do projeto).",
+      "description": "Gaste menos tokens e erre menos no Claude Code. As regras de economia e de raciocínio entram sozinhas em cada sessão; agentes em Haiku e Sonnet executam o que o modelo caro planeja; o painel /lean-time mostra o time e a máquina, e uma trava recusa agente novo quando o computador está no limite. Inclui /fluxo-dev (do ticket ao PR com quality gates) e /fechar (memória do projeto). Em português. Tailor.ia é uma marca da FFID.",
       "source": "./",
       "category": "productivity",
       "keywords": [

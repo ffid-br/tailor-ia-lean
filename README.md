@@ -1,10 +1,15 @@
 # Tailor.ia Lean — menos tokens, mais acerto
 
+<img src=".claude-plugin/icon.png" alt="Tailor.ia" width="96" align="right">
+
 Plugin de [Claude Code](https://claude.com/claude-code) que injeta, no início de cada sessão,
 um bloco curto de regras para **gastar menos tokens** e **raciocinar melhor**, e traz dois guias
 acionáveis: `/lean` (o porquê de cada regra, com exemplos) e `/fluxo-dev` (ticket → branch →
 PR → merge, enxuto). Traz também agentes em Haiku e Sonnet
 para orquestração barata e `/fechar` para guardar a memória da sessão e limpar o contexto. Em português.
+
+[Tailor.ia](https://tailor.ia.br) é uma marca da [FFID](https://www.ffid.com.br), empresa de AI Agents para a jornada do
+cliente, da captação ao pós-venda.
 
 Destilado de prática real em repositórios de produção. Sem dependência, sem servidor, sem
 telemetria: arquivos de texto e dois scripts bash.
@@ -13,7 +18,7 @@ telemetria: arquivos de texto e dois scripts bash.
 
 ```
 /plugin marketplace add ffid-br/tailor-ia-lean
-/plugin install tailor-ia-lean
+/plugin install tailor-ia-lean@tailor-ia-lean
 ```
 
 Abra uma sessão nova. O bloco "Tailor.ia Lean — ativo nesta sessão" aparece no contexto
@@ -53,6 +58,7 @@ Recomendado junto, mesma lógica de instalação:
 | Agente `batedor` | localizar código (arquivo:linha, callers) | Haiku |
 | Agente `operario` | implementar passo já especificado, até 3 arquivos, roda gates | Sonnet |
 | Agente `revisor` | defeitos do diff, uma linha cada | Sonnet |
+| Trava de recursos | antes de cada agente novo: recusa acima do limite da máquina ou com ela sob pressão | zero token |
 | Painel `/lean-painel` | abre sozinho em terminal largo; `/lean-painel` abre em qualquer largura | zero token |
 | Painel `/lean-time` | visão de time: líder, colegas por papel, tarefas e log | zero token |
 
