@@ -1,7 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, ToolCallInput, ToolCallResult } from 'claude-code'
 
-import type { Board, Delegacao, Mate, MateStatus, Task, TaskStatus, Totais } from '../types'
+import type { Board, Delegacao, Maquina, Mate, MateStatus, Task, TaskStatus, Totais } from '../types'
+export type { Maquina }
 
 // Um arquivo só: o diretório da Anthropic só aceita $ passado a função declarada no mesmo arquivo.
 // Primeiro a visão de time (/lean-time), depois o painel de custo (/lean-painel).
@@ -17,7 +18,7 @@ const REVIEW = '#bb9af7' // roxo: revisão
 
 const EMPTY: Board = { mates: [], tasks: [], log: [], leadBusy: false, leadModel: '', startedAt: 0, peak: 0, leadTokens: 0, tokens: 0, fresh: false }
 // Troque a tag quando os campos mudarem: ela recusa o que uma versão antiga gravou.
-const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-5' })
+const board = atom({ plugin: 'tailor-ia-lean', key: 'time' } as const, EMPTY, { shape: 'time-8' })
 
 const USER_ORIGINS = ['composer', 'bridge']
 const RUNNING: MateStatus[] = ['pending', 'running']
@@ -99,6 +100,82 @@ async function footer($: EngineInterface) {
 
 let stopPoll: (() => void) | undefined
 
+// Trava de recursos: orquestração com agente demais em paralelo trava a máquina.
+// `memLivre`: % de memória livre do sistema (kern.memorystatus_level, o número do memory_pressure).
+const MAX_AGENTES = 4 // sem leitura da máquina (fora do macOS)
+/** Saída de `sysctl -n vm.loadavg hw.ncpu kern.memorystatus_level hw.memsize vm.swapusage`; vírgula decimal vem de locale pt_BR. */
+export const lerMaquina = (out: string): Maquina | undefined => {
+  const txt = out.replace(/,/g, '.')
+  const [load, , , ncpu, memLivre, bytes] = (txt.match(/[\d.]+/g) ?? []).map(Number)
+  const swapGB = Math.round(Number(/used = ([\d.]+)M/.exec(txt)?.[1] ?? 0) / 102.4) / 10
+  return load !== undefined && ncpu && memLivre !== undefined && bytes ? { load, ncpu, memLivre, ramGB: Math.round(bytes / 2 ** 30), swapGB } : undefined
+}
+/** Agentes em paralelo que esta máquina aguenta: metade dos núcleos ou 1 a cada 4 GB de RAM, o menor; entre 2 e 8. */
+export const limiteDe = (m?: Maquina): number => (m ? Math.max(2, Math.min(8, Math.floor(m.ncpu / 2), Math.floor(m.ramGB / 4))) : MAX_AGENTES)
+// Swap: o macOS não devolve o swap logo que a memória folga, então swap alto sozinho só avisa;
+// recusa quando passa de metade da RAM e a memória livre ainda está abaixo de 25%.
+export const pressao = (m?: Maquina): 'ok' | 'alta' | 'crítica' =>
+  !m ? 'ok'
+  : m.memLivre < 10 || m.load > m.ncpu * 2 || (m.swapGB > m.ramGB / 2 && m.memLivre < 25) ? 'crítica'
+  : m.memLivre < 20 || m.load > m.ncpu || m.swapGB > m.ramGB / 4 ? 'alta'
+  : 'ok'
+const COR = { ok: TASK, alta: LEAD, crítica: 'red' } as const
+const maquinaTxt = (m: Maquina) => `carga ${m.load.toFixed(1)} em ${m.ncpu} núcleos, memória livre ${m.memLivre}% de ${m.ramGB} GB, swap ${m.swapGB} GB`
+/** Parte desta sessão no limite da máquina: outras sessões do Claude Code abertas dividem o mesmo hardware. */
+export const cota = (total: number, sessoes: number): number => Math.max(1, Math.round(total / Math.max(1, sessoes)))
+/** De onde saiu o limite, para o aviso e o painel: "6 da máquina ÷ 4 sessões do Claude Code". */
+export const contaTxt = (total: number, sessoes: number): string =>
+  sessoes > 1 ? `${total} da máquina ÷ ${sessoes} sessões do Claude Code` : `${total} da máquina, 1 sessão do Claude Code`
+/** Motivo para recusar um agente novo, ou undefined. `max` 0 desliga a trava. `conta`: como o limite foi calculado. */
+export const trava = (rodando: number, max: number, m?: Maquina, conta = ''): string | undefined =>
+  max <= 0 ? undefined
+  : rodando >= max ? `${rodando} agentes já rodando nesta sessão (limite calculado ${max}${conta ? `: ${conta}` : ''}; LEAN_MAX_AGENTES muda, 0 desliga)`
+  : m && pressao(m) === 'crítica' ? `máquina no limite (${maquinaTxt(m)})`
+  : undefined
+
+// shortcut: só macOS (sysctl); em Linux/Windows a leitura falha e vale só o limite de agentes. Ler /proc quando houver usuário fora do Mac.
+async function medir($: EngineInterface): Promise<Maquina | undefined> {
+  try {
+    const r = await $.process.run(['sysctl', '-n', 'vm.loadavg', 'hw.ncpu', 'kern.memorystatus_level', 'hw.memsize', 'vm.swapusage'], { timeoutMs: 2000 })
+    return r.exitCode === 0 ? lerMaquina(r.stdout) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Mede, calcula o limite (LEAN_MAX_AGENTES sobrepõe o do hardware) e guarda no board para o /lean-time desenhar. */
+async function medirEGuardar($: EngineInterface): Promise<{ m?: Maquina; max: number; conta: string }> {
+  const m = await medir($)
+  // cada sessão do Claude Code é um processo `claude` (os agentes rodam dentro dele); sem pgrep, conta só esta
+  const sessoes = await $.process.run(['pgrep', '-x', 'claude'], { timeoutMs: 2000 }).then(r => Math.max(1, r.stdout.split('\n').filter(Boolean).length), () => 1)
+  const total = limiteDe(m)
+  const env = Number((await $.env.get('LEAN_MAX_AGENTES').catch(() => undefined)) ?? NaN)
+  const fixo = !Number.isNaN(env)
+  const max = fixo ? env : cota(total, sessoes)
+  const conta = fixo ? 'fixado por LEAN_MAX_AGENTES' : contaTxt(total, sessoes)
+  if (m) await update($, board, b => ({ ...b, maq: m, limite: max, conta }))
+  avisar($, m)
+  return { m, max, conta }
+}
+
+let nivel: ReturnType<typeof pressao> = 'ok'
+/** Toast quando a pressão sobe de nível; não repete enquanto fica no mesmo. */
+function avisar($: EngineInterface, m?: Maquina) {
+  const novo = pressao(m)
+  if (m && novo !== 'ok' && novo !== nivel) $.ui.toast(`Tailor.ia Lean: pressão ${novo} na máquina (${maquinaTxt(m)})`, { timeoutMs: 8000 })
+  nivel = novo
+}
+
+const faixaDe = (pct: number) => (pct >= 90 ? 90 : pct >= 80 ? 80 : 0)
+const faixas = new Map<string, number>()
+/** Janela de rate limit (5h, 7d) que cruzou 80% ou 90%: o texto do aviso, uma vez por faixa. */
+export const avisoLimite = (kind: string, pct: number): string | undefined => {
+  const f = faixaDe(pct)
+  const antes = faixas.get(kind) ?? 0
+  faixas.set(kind, f)
+  return f > antes ? `Tailor.ia Lean: limite ${kind} em ${pct}%` : undefined
+}
+
 // session.start do painel chama isto (um hook sem matcher por evento no plugin).
 export async function timeStart($: EngineInterface) {
   await $.command.register({ name: 'lean-time', description: 'Abre o painel do time de agentes (líder, colegas por papel, tarefas, log)' })
@@ -107,9 +184,12 @@ export async function timeStart($: EngineInterface) {
   // travado/falhou só o roster do engine conta, então lê a cada 1,5 s;
   // o fim e a retomada chegam por turn.complete / agent.spawn (o roster pode manter "running").
   stopPoll?.()
+  let tick = 0
   const t = $.clock.every(1500, () => {
     void (async () => {
       const list = await $.agent.list()
+      // na abertura e a cada ~15 s: atualiza a linha da máquina e avisa se apertou no meio da rodada
+      if (tick++ % 10 === 0) await medirEGuardar($).catch(() => undefined)
       const at = await $.clock.now()
       await update($, board, b => {
         let changed = false
@@ -224,6 +304,19 @@ export const registerTime = (on: Parameters<Register>[0]) => {
   })
 
   on('agent.spawn', async ($, e, next) => {
+    // falha da trava nunca derruba o spawn: sem leitura, deixa passar
+    const motivo = await (async () => {
+      const { m, max, conta } = await medirEGuardar($)
+      const b = await read($, board)
+      const why = trava(b.mates.filter(isRunning).length, max, m, conta)
+      if (why) {
+        const at = await $.clock.now()
+        await update($, board, x => say(x, 'líder', `trava: agente recusado, ${why.split(' (')[0]}`, at))
+        $.ui.toast(`Tailor.ia Lean recusou um agente: ${why}`, { timeoutMs: 8000 })
+      }
+      return why
+    })().catch(() => undefined)
+    if (motivo) return { deny: `Trava do Tailor.ia Lean: ${motivo}. Não relance agora: espere um colega terminar ou faça este passo direto, sem agente.` }
     const r = await next(e)
     // painel nunca derruba o spawn
     if (r.agentId) try {
@@ -247,6 +340,14 @@ export const registerTime = (on: Parameters<Register>[0]) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
+    // Barra fina: ━ na cor do nível, ─ apagado, e a porcentagem (a barra para em 100%, o número não).
+    // `alta` e `critica`: os mesmos cortes de pressao(), para a barra e a pressão nunca discordarem.
+    const medidor = (pct: number, alta: number, critica: number, w = 10) => {
+      const p = Math.max(0, Math.round(pct))
+      const f = Math.round((Math.min(p, 100) / 100) * w)
+      const cor = p > critica ? COR.crítica : p > alta ? COR.alta : COR.ok
+      return <Text><Text color={cor}>{'━'.repeat(f)}</Text><Text dimColor>{'─'.repeat(w - f)}</Text> <Text bold color={cor}>{p}%</Text></Text>
+    }
     const b = await read($, board)
     const cols = e.viewport?.columns ?? 100
     const phase = phaseOf(b)
@@ -272,6 +373,19 @@ export const registerTime = (on: Parameters<Register>[0]) => {
         <Text>
           <Text color={LEAD}>■ líder</Text>  <Text color={MATE}>■ colegas</Text>  <Text color={TASK}>■ tarefas</Text>  <Text color={REVIEW}>■ revisão</Text>
         </Text>
+        {b.maq && (
+          <Box flexDirection="column" borderStyle="round" borderColor={COR[pressao(b.maq)]} paddingX={1}>
+            <Text wrap="truncate-end">
+              <Text bold>máquina</Text> · pressão <Text bold color={COR[pressao(b.maq)]}>{pressao(b.maq)}</Text>
+              <Text dimColor>  │  </Text>agentes <Text bold color={b.limite && b.mates.filter(isRunning).length >= b.limite ? COR.alta : undefined}>{b.mates.filter(isRunning).length}/{b.limite || '∞'}</Text>
+              <Text dimColor> · {b.conta}</Text>
+            </Text>
+            <Text wrap="truncate-end">
+              CPU {medidor((b.maq.load / b.maq.ncpu) * 100, 100, 200)}   RAM {medidor(100 - b.maq.memLivre, 80, 90)} de {b.maq.ramGB} GB   swap{' '}
+              <Text bold color={b.maq.swapGB > b.maq.ramGB / 4 ? COR.alta : undefined}>{b.maq.swapGB} GB</Text>
+            </Text>
+          </Box>
+        )}
 
         <Box flexDirection="row">
           <Box flexDirection="column" flexGrow={1}>
@@ -297,7 +411,7 @@ export const registerTime = (on: Parameters<Register>[0]) => {
                     {t.status === 'completed' ? '✔' : t.status === 'in_progress' ? '▶' : '·'}
                   </Text>{' '}
                   {t.subject}
-                  {t.owner ? <Text dimColor> ({t.owner})</Text> : null}
+                  {t.owner && t.owner !== t.subject ? <Text dimColor> ({t.owner})</Text> : null}
                 </Text>
               ))}
             </Box>
@@ -407,6 +521,14 @@ export const register: Register = on => {
         await seguro(update($, agora, () => now))
       }
     })
+    return next(e)
+  })
+
+  on('session.measure', ($, e, next) => {
+    for (const r of e.rateLimits) {
+      const txt = avisoLimite(r.kind, r.percentUsed)
+      if (txt) $.ui.toast(txt, { timeoutMs: 8000 })
+    }
     return next(e)
   })
 

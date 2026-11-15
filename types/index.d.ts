@@ -39,6 +39,8 @@ export type Mate = {
   /** Tokens dos turnos do colega somados (entrada + cache lido + cache escrito + saída). */
   tokens: number
 }
+/** `memLivre`: % de memória livre do sistema (kern.memorystatus_level). `load`: load de 1 min. `swapGB`: swap em uso. */
+export type Maquina = { load: number; ncpu: number; memLivre: number; ramGB: number; swapGB: number }
 export type TaskStatus = 'pending' | 'in_progress' | 'completed'
 /** `owner`: nome ou id do colega; '' quando a tarefa não tem dono. */
 export type Task = { id: string; subject: string; status: TaskStatus; owner: string }
@@ -60,6 +62,12 @@ export type Board = {
   fresh: boolean
   /** Maior número de colegas rodando ao mesmo tempo na sessão. */
   peak: number
+  /** Última leitura da máquina; ausente fora do macOS. */
+  maq?: Maquina
+  /** Agentes em paralelo permitidos pela trava; 0 = desligada. */
+  limite?: number
+  /** Como o limite foi calculado: "6 da máquina ÷ 4 sessões do Claude Code". */
+  conta?: string
 }
 
 declare module 'claude-code' {

@@ -134,3 +134,25 @@ test('prompt novo: a próxima delegação tira quem já entregou e mantém o tot
   expect(await ui.find({ type: 'Text', text: /nova rodada \(1 colegas saem\)/ })).toBeTruthy()
   await ui.unmount()
 })
+
+test('agente acima da cota da sessão é recusado pela trava e o log do time registra', async ($, on) => {
+  mock.clock(on, { now: 1_000_000 })
+  on('command.register', () => ({ value: { command: 'lean-time' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  let n = 0
+  on('agent.spawn', () => ({ model: 'claude-haiku-5-5', agentId: `ag${++n}` }))
+  // 12 núcleos e 16 GB aguentam 4; com 2 sessões do Claude Code abertas, esta fica com 2
+  on('process.run', (_, e) => ({ value: { exitCode: 0, stdout: e.argv[0] === 'pgrep' ? '101\n202\n' : '{ 3,39 6,27 14,83 }\n12\n78\n17179869184\ntotal = 2048.00M  used = 1050.62M  free = 997.38M  (encrypted)\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 2; i++) expect((await $.agent.spawn(spawn)).agentId).toBeTruthy()
+  const r = await $.agent.spawn(spawn)
+  expect(r.deny).toMatch(/2 agentes já rodando nesta sessão \(limite calculado 2: 4 da máquina ÷ 2 sessões do Claude Code/)
+  expect(n).toBe(2)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /trava: agente recusado, 2 agentes já rodando nesta sessão$/ })).toBeTruthy()
+  expect((await ui.find({ type: 'Text', text: /máquina/ }))?.text).toMatch(/pressão ok .* agentes 2\/2 · 4 da máquina ÷ 2 sessões do Claude Code/)
+  expect((await ui.find({ type: 'Text', text: /^\s*CPU/ }))?.text).toMatch(/CPU ━━━─────── 28% +RAM ━━──────── 22% de 16 GB +swap 1 GB/)
+  await ui.unmount()
+})
