@@ -16,7 +16,7 @@ main() {
   git checkout -q -B diretorio
   git rm -rq hooks tests types tsconfig.json scripts benchmarks docs
 
-  jq 'del(.types) | .description = "Modo enxuto para Claude Code: guias de economia de tokens e de qualidade de raciocínio (/lean), fluxo de desenvolvimento enxuto (ticket, branch, PR, quality gates, memória do projeto), agentes em Haiku e Sonnet para orquestração barata (batedor, operario, revisor) e fechamento de sessão com memória. Destilado de prática real em repositórios de produção."' \
+  jq 'del(.types) | .description = "Gaste menos tokens e erre menos no Claude Code. Quatro skills em português: /lean (regras de economia e de raciocínio, com o porquê de cada uma), /orquestrar (o modelo caro planeja, agentes em Haiku e Sonnet executam), /fluxo-dev (do ticket ao PR com quality gates) e /fechar (guarda na memória do projeto o que a sessão aprendeu). Tailor.ia é uma marca da FFID."' \
     .claude-plugin/plugin.json > plugin.tmp && mv plugin.tmp .claude-plugin/plugin.json
 
   # /fechar chamava um script do plugin; nesta edição lista a pasta direto.
