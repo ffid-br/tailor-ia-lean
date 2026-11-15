@@ -8,6 +8,9 @@ acionáveis: `/lean` (o porquê de cada regra, com exemplos) e `/fluxo-dev` (tic
 PR → merge, enxuto). Traz também agentes em Haiku e Sonnet
 para orquestração barata e `/fechar` para guardar a memória da sessão e limpar o contexto. Em português.
 
+Tailor.ia é uma marca da [FFID](https://www.ffid.com.br), empresa de AI Agents para a jornada do
+cliente, da captação ao pós-venda.
+
 Destilado de prática real em repositórios de produção. Sem dependência, sem servidor, sem
 telemetria: arquivos de texto e dois scripts bash.
 
