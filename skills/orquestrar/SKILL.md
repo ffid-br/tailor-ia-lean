@@ -39,6 +39,17 @@ ficam fora do seu contexto.
 6. **Integrar** (principal): leia só os resumos. Confira que o conjunto responde ao pedido
    original. Responda ao usuário.
 
+## Limite de paralelo
+
+Lance poucos agentes por vez: 2 ou 3 juntos, o próximo quando um entregar. Cada agente roda
+ferramentas (build, testes, buscas) na máquina do usuário, e agente demais em paralelo a trava.
+
+O plugin calcula o limite desta sessão: quanto o hardware aguenta (núcleos e RAM, de 2 a 8
+agentes) dividido pelas sessões do Claude Code abertas na máquina. Ele recusa o lançamento
+quando esse limite é atingido ou quando a máquina está no limite (memória livre abaixo de 10%,
+carga acima de 2x os núcleos). O motivo vem com a conta. Recusado: não relance em seguida.
+Espere um colega entregar ou faça o passo direto.
+
 ## Quando não orquestrar
 
 Tarefa de um arquivo e 20 linhas: faça direto. Subagente custa uma rodada de contexto; só

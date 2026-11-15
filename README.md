@@ -90,17 +90,44 @@ Precisa de Claude Code com hooks module; em versão antiga ou no Codex não apar
 
 ### O que os hooks do painel fazem
 
-Os dois painéis moram em `hooks/painel.tsx`. Os hooks só observam e desenham; nenhum muda,
-bloqueia ou reescreve o que passa por eles.
+Os dois painéis moram em `hooks/painel.tsx`. Os hooks observam e desenham; nenhum muda ou
+reescreve o que passa por eles. O único que bloqueia é a trava de recursos do `agent.spawn`.
 
 - `tool.call`: depois que a ferramenta roda, conta a chamada (principal ou agente) e, no `Agent`,
   guarda modelo, tokens e duração. Não altera entrada nem resultado.
-- `agent.spawn`: registra o colega novo (papel, modelo) depois que o engine o lança.
+- `agent.spawn`: antes de lançar, aplica a trava de recursos (abaixo); depois registra o colega
+  novo (papel, modelo).
+- `session.measure`: toast quando uma janela de rate limit (5h, 7d) cruza 80% ou 90%.
 - `prompt.submit`: quando é o usuário digitando, marca rodada nova no `/lean-time`. Não muda o
   texto, o contexto nem a origem do prompt.
 - `turn.start` / `turn.complete`: marcam líder e colegas ocupados ou livres e somam o `usage` do turno.
 - `session.start` / `session.end`: registram `/lean-painel` e `/lean-time` e param o relógio.
 - `ui.render`: desenha os dois painéis.
+
+### Trava de recursos
+
+Orquestração com agente demais em paralelo trava o computador. Antes de cada agente novo, o
+plugin recusa o lançamento quando:
+
+- o número de agentes rodando nesta sessão chegou ao limite calculado. A conta tem dois passos.
+  Primeiro, quanto a máquina aguenta: metade dos núcleos ou 1 agente a cada 4 GB de RAM, o menor
+  dos dois, entre 2 e 8 (12 núcleos e 24 GB dão 6; 8 núcleos e 8 GB dão 2). Depois, esse total
+  é dividido pelas sessões do Claude Code abertas na máquina (processos `claude`, contados com
+  `pgrep -x claude`), arredondado, com mínimo de 1: 6 da máquina com 4 sessões dão 2 por sessão.
+  Sessão aberta e parada também conta. O painel e o aviso mostram a conta.
+  `LEAN_MAX_AGENTES=6` fixa o limite desta sessão e pula a conta; `LEAN_MAX_AGENTES=0` desliga a trava;
+- a memória livre do sistema está abaixo de 10%, ou a carga (load de 1 min) passa de 2x os núcleos,
+  ou o swap em uso passa de metade da RAM com a memória livre abaixo de 25%.
+
+O modelo recebe o motivo e a instrução de esperar um colega terminar ou fazer o passo direto.
+Você vê um toast e uma linha `trava:` no log do `/lean-time`. O topo do `/lean-time` mostra a
+caixa `máquina`: pressão (ok, alta, crítica), agentes rodando sobre o limite com a conta
+(`6 da máquina ÷ 4 sessões do Claude Code`) e, na segunda linha, CPU e RAM em uso com barra e
+porcentagem e o swap em GB. Atualiza a cada ~15 s. Com memória livre abaixo de 20%,
+carga acima do número de núcleos ou swap acima de 1/4 da RAM, sai só o aviso (toast), também a cada ~15 s enquanto há colega
+rodando. A leitura da máquina roda `sysctl -n vm.loadavg hw.ncpu kern.memorystatus_level hw.memsize vm.swapusage` a
+cada agente novo e só existe no macOS; em Linux e Windows vale um limite fixo de 4 agentes. A trava vale para todo
+agente da sessão, inclusive os de um Workflow.
 
 ## Memória: guardar, compactar, limpar
 
