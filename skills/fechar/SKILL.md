@@ -76,7 +76,7 @@ EOF
 
 ## 2. Limpar a memória
 
-Rode `"${CLAUDE_PLUGIN_ROOT}"/scripts/memoria-status` (ou liste `docs/memoria/` por data).
+Liste `docs/memoria/` por data.
 Para cada registro:
 
 - **Mesmo assunto em dois arquivos**: funda no mais recente, apague o outro.

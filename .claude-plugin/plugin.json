@@ -1,6 +1,6 @@
 {
   "name": "tailor-ia-lean",
-  "description": "Gaste menos tokens e erre menos no Claude Code. As regras de economia e de raciocínio entram sozinhas em cada sessão; agentes em Haiku e Sonnet executam o que o modelo caro planeja; o painel /lean-time mostra o time e a máquina, e uma trava recusa agente novo quando o computador está no limite. Inclui /fluxo-dev (do ticket ao PR com quality gates) e /fechar (memória do projeto). Em português. Tailor.ia é uma marca da FFID.",
+  "description": "Gaste menos tokens e erre menos no Claude Code. Quatro skills em português: /lean (regras de economia e de raciocínio, com o porquê de cada uma), /orquestrar (o modelo caro planeja, agentes em Haiku e Sonnet executam), /fluxo-dev (do ticket ao PR com quality gates) e /fechar (guarda na memória do projeto o que a sessão aprendeu). Tailor.ia é uma marca da FFID.",
   "version": "0.9.0",
   "author": {
     "name": "FFID"
@@ -20,6 +20,5 @@
   "repository": "https://github.com/ffid-br/tailor-ia-lean",
   "documentationUrl": "https://github.com/ffid-br/tailor-ia-lean#readme",
   "supportUrl": "https://github.com/ffid-br/tailor-ia-lean/issues",
-  "license": "MIT",
-  "types": "./types/index.d.ts"
+  "license": "MIT"
 }
